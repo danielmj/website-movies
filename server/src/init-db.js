@@ -10,6 +10,7 @@ const pool = require('./db');
 const MIGRATIONS = [
   `ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE`,
   `ALTER TABLE users ADD COLUMN last_seen_at TIMESTAMP NULL`,
+  `ALTER TABLE movies ADD COLUMN notes TEXT NULL`,
 ];
 
 (async () => {

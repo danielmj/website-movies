@@ -1,7 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
+
+const STATUS_BADGE = {
+  auto:           { label: 'auto-match',     cls: 'good' },
+  needs_confirm:  { label: 'pick a match',   cls: 'warn' },
+  no_results:     { label: 'no results',     cls: 'bad' },
+  already_in_db:  { label: 'already added',  cls: '' },
+  search_failed:  { label: 'search failed',  cls: 'bad' },
+  empty:          { label: 'empty title',    cls: 'bad' },
+};
 
 export default function Admin() {
   const { user, refresh } = useAuth();
@@ -79,6 +88,10 @@ export default function Admin() {
   return (
     <div className="container">
       <h1 style={{ marginTop: 0 }}>Admin</h1>
+
+      <MovieDataTools />
+
+      <h2 style={{ marginTop: '2rem' }}>Users</h2>
       <div style={{ overflowX: 'auto' }}>
         <table className="admin-table">
           <thead>
@@ -140,6 +153,251 @@ export default function Admin() {
               <button className="primary" onClick={() => setResetPw(null)}>Got it</button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MovieDataTools() {
+  return (
+    <section style={{ marginTop: '1rem' }}>
+      <h2 style={{ marginTop: 0 }}>Movie data</h2>
+      <div className="row" style={{ flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+        <ExportButton />
+        <ImportDumpButton />
+      </div>
+      <ImportTitles />
+    </section>
+  );
+}
+
+function ExportButton() {
+  const [busy, setBusy] = useState(false);
+  async function go() {
+    setBusy(true);
+    try {
+      // The endpoint sends a Content-Disposition header; trigger a download
+      // by hitting it through a hidden anchor instead of fetch+blob.
+      const a = document.createElement('a');
+      a.href = '/api/admin/movies/export';
+      a.click();
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <button className="primary" onClick={go} disabled={busy}>
+      {busy ? 'Exporting…' : 'Export movies (JSON)'}
+    </button>
+  );
+}
+
+function ImportDumpButton() {
+  const fileRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [err, setErr] = useState(null);
+
+  async function onFile(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!confirm(`Import ${f.name}? Existing movies (matched by tmdb_id/imdb_id) will be updated; new ones added.`)) {
+      e.target.value = '';
+      return;
+    }
+    setBusy(true); setErr(null);
+    try {
+      const text = await f.text();
+      const data = JSON.parse(text);
+      const r = await api.post('/api/admin/movies/import', data);
+      setResult(r);
+    } catch (ex) {
+      setErr(ex.message);
+    } finally {
+      setBusy(false);
+      e.target.value = '';
+    }
+  }
+
+  return (
+    <>
+      <button onClick={() => fileRef.current?.click()} disabled={busy}>
+        {busy ? 'Importing…' : 'Import dump (JSON)'}
+      </button>
+      <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={onFile} />
+      {err && <div className="error">{err}</div>}
+      {result && (
+        <span style={{ color: 'var(--muted)' }}>
+          inserted {result.inserted} · updated {result.updated} · statuses {result.statuses_applied} · watch events {result.watch_events_added}
+        </span>
+      )}
+    </>
+  );
+}
+
+// Title-list import flow:
+//   1. Paste a JSON array of { title, added_by? } objects.
+//   2. Click "Search" — server hits TMDB for each title and returns candidates.
+//   3. For ambiguous titles, the admin picks the right candidate.
+//   4. Click "Add selected" — server commits the chosen tmdb_ids.
+function ImportTitles() {
+  const [text, setText] = useState(`[
+  {"title": "10 Things I Hate About You", "added_by": null},
+  {"title": "Inglourious Basterds", "added_by": null}
+]`);
+  const [items, setItems] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const [committed, setCommitted] = useState(null);
+
+  async function search() {
+    setErr(null);
+    setCommitted(null);
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) throw new Error('expected an array');
+    } catch (e) {
+      setErr(`couldn't parse JSON: ${e.message}`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await api.post('/api/admin/movies/import-titles/search', { items: parsed });
+      // Normalize each row into a state-bearing shape: include the chosen
+      // tmdb_id (preselected for auto-matches) and a per-row "include" bool.
+      const next = r.items.map((it) => ({
+        ...it,
+        chosen_tmdb_id: it.chosen_tmdb_id ?? null,
+        include: it.status === 'auto' || it.status === 'needs_confirm',
+      }));
+      setItems(next);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function setChoice(idx, tmdbId) {
+    setItems((prev) => prev.map((it, i) => i === idx ? { ...it, chosen_tmdb_id: tmdbId } : it));
+  }
+  function setInclude(idx, on) {
+    setItems((prev) => prev.map((it, i) => i === idx ? { ...it, include: on } : it));
+  }
+
+  async function commit() {
+    const payload = items
+      .filter((it) => it.include && it.chosen_tmdb_id)
+      .map((it) => ({ tmdb_id: it.chosen_tmdb_id, note: it.note }));
+    if (!payload.length) {
+      setErr('nothing selected with a chosen match');
+      return;
+    }
+    setBusy(true); setErr(null);
+    try {
+      const r = await api.post('/api/admin/movies/import-titles/commit', { items: payload });
+      setCommitted(r.items);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h3 style={{ marginTop: 0 }}>Import titles (with TMDB lookup)</h3>
+      <p style={{ color: 'var(--muted)', marginTop: 0 }}>
+        Paste a JSON array of <code>{'{ "title": "...", "added_by": "..." }'}</code> entries.
+        Each title is searched on TMDB; you'll resolve any ambiguities before committing.
+      </p>
+      <textarea
+        rows={8}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        style={{ width: '100%', fontFamily: 'monospace', fontSize: '0.85rem' }}
+      />
+      <div className="row" style={{ marginTop: '0.5rem', gap: '0.5rem' }}>
+        <button className="primary" onClick={search} disabled={busy}>
+          {busy && !items ? 'Searching…' : 'Search'}
+        </button>
+        {items && (
+          <button onClick={commit} disabled={busy}>
+            {busy ? 'Adding…' : `Add selected (${items.filter((it) => it.include && it.chosen_tmdb_id).length})`}
+          </button>
+        )}
+      </div>
+      {err && <div className="error">{err}</div>}
+
+      {items && (
+        <div style={{ marginTop: '1rem', display: 'grid', gap: '0.75rem' }}>
+          {items.map((it, idx) => (
+            <ImportRow
+              key={idx}
+              item={it}
+              onChoice={(tmdbId) => setChoice(idx, tmdbId)}
+              onInclude={(on) => setInclude(idx, on)}
+            />
+          ))}
+        </div>
+      )}
+
+      {committed && (
+        <div className="card" style={{ marginTop: '1rem', background: 'var(--panel-2)' }}>
+          <strong>Done.</strong>{' '}
+          {committed.filter((c) => c.ok && !c.existed).length} added,{' '}
+          {committed.filter((c) => c.ok && c.existed).length} already in DB,{' '}
+          {committed.filter((c) => !c.ok).length} failed.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ImportRow({ item, onChoice, onInclude }) {
+  const badge = STATUS_BADGE[item.status] || { label: item.status, cls: '' };
+  const showCandidates = item.candidates.length > 0 && item.status !== 'already_in_db';
+  return (
+    <div className="card" style={{ padding: '0.75rem' }}>
+      <div className="spread" style={{ alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600 }}>{item.input.title || <em>(empty)</em>}</div>
+          {item.note && <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>{item.note}</div>}
+        </div>
+        <span className={`pill ${badge.cls}`} style={{ flexShrink: 0 }}>{badge.label}</span>
+        <label style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem' }}>
+          <input
+            type="checkbox"
+            checked={item.include}
+            onChange={(e) => onInclude(e.target.checked)}
+            disabled={item.status === 'no_results' || item.status === 'empty' || item.status === 'already_in_db'}
+          />
+          include
+        </label>
+      </div>
+      {showCandidates && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.5rem', marginTop: '0.5rem' }}>
+          {item.candidates.map((c) => (
+            <label key={c.tmdb_id} className={`candidate ${item.chosen_tmdb_id === c.tmdb_id ? 'chosen' : ''}`}>
+              <input
+                type="radio"
+                name={`row-${item.input.title}`}
+                checked={item.chosen_tmdb_id === c.tmdb_id}
+                onChange={() => onChoice(c.tmdb_id)}
+                style={{ display: 'none' }}
+              />
+              <div
+                className="poster"
+                style={c.poster_url ? { backgroundImage: `url(${c.poster_url})` } : {}}
+              />
+              <div className="info">
+                <div className="title">{c.title}</div>
+                <div className="muted">{c.year || '—'}</div>
+              </div>
+            </label>
+          ))}
         </div>
       )}
     </div>

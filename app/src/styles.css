@@ -167,13 +167,19 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
 .movie-card .meta { color: var(--muted); font-size: 0.8rem; }
 .movie-card .pills { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
 
-/* When the card is narrow enough that a horizontal pill would wrap awkwardly,
- * restyle the SegmentedControl as a vertical picker instead. Threshold is
- * roughly the width below which 3 status options + padding stop fitting on
- * one line. The card's body is the container, so this is independent of
- * viewport width — works whether you're on mobile or just have a narrow
- * grid column. */
-@container card (max-width: 240px) {
+/* Inside a movie card the segmented control needs to fit alongside posters
+ * + meta in a 220px-min grid column, so it wears smaller padding/font than
+ * the default. The container query below stacks it vertically only when the
+ * card body gets really narrow (single phone column / very dense grid). */
+.movie-card .segmented { padding: 3px; gap: 3px; }
+.movie-card .segmented button {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+/* When the card is narrow enough that even the shrunken pill would wrap,
+ * restyle the SegmentedControl as a vertical picker instead. */
+@container card (max-width: 200px) {
   .movie-card .segmented {
     flex-direction: column;
     flex-wrap: nowrap;
@@ -185,6 +191,7 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
     text-align: left;
     border-radius: 6px;
     padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
   }
 }
 .card-remove {
@@ -259,6 +266,24 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
 }
 .user-status-table tr.no-response td { color: var(--muted); }
 
+.notes-block {
+  background: var(--panel-2);
+  border-left: 3px solid var(--accent);
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+.admin-edit { border-color: var(--accent); }
+.admin-edit textarea {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.5rem;
+  border-radius: 6px;
+  width: 100%;
+  font-family: inherit;
+}
+
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 .profile-list { list-style: none; padding: 0; margin: 0.5rem 0 0; display: grid; gap: 0.4rem; }
@@ -283,6 +308,30 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
 }
 .profile-list .info .title { font-weight: 500; }
 .profile-list .info .muted { color: var(--muted); font-size: 0.85rem; }
+
+.candidate {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.4rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.candidate:hover { border-color: var(--accent); }
+.candidate.chosen { border-color: var(--accent); background: rgba(255, 209, 102, 0.08); }
+.candidate .poster {
+  width: 44px;
+  aspect-ratio: 2/3;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--panel-2);
+  border-radius: 4px;
+}
+.candidate .info .title { font-size: 0.85rem; line-height: 1.2; }
+.candidate .info .muted { color: var(--muted); font-size: 0.75rem; }
 .pill {
   font-size: 0.7rem;
   padding: 0.15rem 0.45rem;

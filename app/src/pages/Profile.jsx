@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { RATING_LABEL, STATUS_LABEL } from '../components/RatingPicker.jsx';
@@ -12,7 +12,8 @@ const STATUS_BUCKETS = [
 ];
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [movies, setMovies] = useState(null);
   const [err, setErr] = useState(null);
 
@@ -34,10 +35,18 @@ export default function Profile() {
   return (
     <div className="container">
       <div className="spread" style={{ marginBottom: '1rem' }}>
-        <h1 style={{ margin: 0 }}>{user.name}</h1>
-        <span style={{ color: 'var(--muted)' }}>
-          {buckets.seen.length} watched · {movies.length} total
-        </span>
+        <div>
+          <h1 style={{ margin: 0 }}>{user.name}</h1>
+          <span style={{ color: 'var(--muted)' }}>
+            {buckets.seen.length} watched · {movies.length} total
+          </span>
+        </div>
+        <button
+          className="danger"
+          onClick={async () => { await logout(); navigate('/'); }}
+        >
+          Sign out
+        </button>
       </div>
 
       {STATUS_BUCKETS.map(({ key, label }) => {

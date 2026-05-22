@@ -88,6 +88,9 @@ export default function MovieDetail() {
             ) : null}
             {(movie.genres || []).map((g) => <span key={g} className="pill">{g}</span>)}
           </div>
+          {movie.notes && (
+            <div className="notes-block"><strong>Notes:</strong> {movie.notes}</div>
+          )}
           {movie.overview && (
             <p style={{ color: 'var(--muted)', lineHeight: 1.5 }}>{movie.overview}</p>
           )}
@@ -139,19 +142,10 @@ export default function MovieDetail() {
 
           <section className="card" style={{ marginTop: '1rem' }}>
             <h2 style={{ marginTop: 0 }}>Watch history</h2>
-            {(movie.watch_history || []).length === 0 ? (
-              <p style={{ color: 'var(--muted)' }}>Never watched as part of a Maybe Movie session.</p>
-            ) : (
-              <ul style={{ paddingLeft: '1rem', margin: 0 }}>
-                {movie.watch_history.map((w) => (
-                  <li key={w.id} style={{ marginBottom: '0.4rem' }}>
-                    <strong>{fmtDate(w.ended_at)}</strong>
-                    {w.attendees ? <span style={{ color: 'var(--muted)' }}> — with {w.attendees}</span> : null}
-                  </li>
-                ))}
-              </ul>
-            )}
+            <WatchHistory movie={movie} />
           </section>
+
+          {user.is_admin && <AdminMovieEditor movie={movie} reload={load} />}
         </>
       ) : (
         <section className="card" style={{ marginTop: '1rem' }}>
@@ -161,5 +155,142 @@ export default function MovieDetail() {
         </section>
       )}
     </div>
+  );
+}
+
+function WatchHistory({ movie }) {
+  const sessionRows = (movie.watch_history || []).map((w) => ({
+    key: `s-${w.id}`,
+    date: w.ended_at,
+    label: w.attendees ? `with ${w.attendees}` : 'Maybe Movie session',
+  }));
+  const eventRows = (movie.watch_events || []).map((w) => ({
+    key: `e-${w.id}`,
+    date: w.watched_at,
+    label: w.notes || 'Manually logged',
+  }));
+  const all = [...sessionRows, ...eventRows].sort((a, b) => (a.date < b.date ? 1 : -1));
+  if (!all.length) return <p style={{ color: 'var(--muted)', margin: 0 }}>No recorded watches yet.</p>;
+  return (
+    <ul style={{ paddingLeft: '1rem', margin: 0 }}>
+      {all.map((w) => (
+        <li key={w.key} style={{ marginBottom: '0.4rem' }}>
+          <strong>{fmtDate(w.date)}</strong>
+          <span style={{ color: 'var(--muted)' }}> — {w.label}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function AdminMovieEditor({ movie, reload }) {
+  const [notes, setNotes] = useState(movie.notes || '');
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [newDate, setNewDate] = useState('');
+  const [newNotes, setNewNotes] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [err, setErr] = useState(null);
+
+  // If the parent reloads with a different value, sync the textarea.
+  useEffect(() => { setNotes(movie.notes || ''); }, [movie.id, movie.notes]);
+
+  async function saveNotes() {
+    setSavingNotes(true); setErr(null);
+    try {
+      await api.patch(`/api/admin/movies/${movie.id}`, { notes });
+      await reload();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSavingNotes(false);
+    }
+  }
+
+  async function addEvent() {
+    if (!newDate) return;
+    setAdding(true); setErr(null);
+    try {
+      await api.post(`/api/admin/movies/${movie.id}/watch-events`, {
+        watched_at: newDate,
+        notes: newNotes || null,
+      });
+      setNewDate(''); setNewNotes('');
+      await reload();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function deleteEvent(eventId) {
+    if (!confirm('Delete this watch entry?')) return;
+    try {
+      await api.del(`/api/admin/watch-events/${eventId}`);
+      await reload();
+    } catch (e) {
+      setErr(e.message);
+    }
+  }
+
+  return (
+    <section className="card admin-edit" style={{ marginTop: '1rem' }}>
+      <h2 style={{ marginTop: 0 }}>Admin · edit metadata</h2>
+
+      <div className="field">
+        <label>Notes (free text — e.g. "Added by Blair")</label>
+        <textarea
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Notes about this movie"
+        />
+        <button
+          className="primary"
+          onClick={saveNotes}
+          disabled={savingNotes || notes === (movie.notes || '')}
+          style={{ marginTop: '0.4rem' }}
+        >
+          {savingNotes ? 'Saving…' : 'Save notes'}
+        </button>
+      </div>
+
+      <div className="field">
+        <label>Manual watch entries</label>
+        {(movie.watch_events || []).length === 0 ? (
+          <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>None yet.</div>
+        ) : (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.25rem' }}>
+            {movie.watch_events.map((w) => (
+              <li key={w.id} className="row" style={{ gap: '0.5rem', fontSize: '0.9rem' }}>
+                <strong style={{ minWidth: 100 }}>{fmtDate(w.watched_at)}</strong>
+                <span style={{ flex: 1, color: 'var(--muted)' }}>{w.notes || '—'}</span>
+                <button onClick={() => deleteEvent(w.id)}>Delete</button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="row" style={{ marginTop: '0.5rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <input
+            type="date"
+            value={newDate}
+            onChange={(e) => setNewDate(e.target.value)}
+            style={{ width: 170 }}
+          />
+          <input
+            type="text"
+            placeholder="Notes (optional)"
+            value={newNotes}
+            onChange={(e) => setNewNotes(e.target.value)}
+            style={{ flex: 1, minWidth: 200 }}
+          />
+          <button onClick={addEvent} disabled={adding || !newDate} className="primary">
+            {adding ? 'Adding…' : 'Add'}
+          </button>
+        </div>
+      </div>
+
+      {err && <div className="error">{err}</div>}
+    </section>
   );
 }

@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS movies (
   overview TEXT,
   bechdel_rating TINYINT,
   bechdel_passes BOOLEAN,
+  notes TEXT,
   added_by_user_id INT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (added_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
@@ -81,4 +82,19 @@ CREATE TABLE IF NOT EXISTS maybe_votes (
   FOREIGN KEY (session_id) REFERENCES maybe_sessions(id) ON DELETE CASCADE,
   FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Manually-recorded watch events (admin-entered). Distinct from
+-- maybe_sessions.watched_movie_id, which only records movies watched
+-- through a Maybe Movie session. Use this for retroactively logging
+-- watches that happened before the app existed, or outside a session.
+CREATE TABLE IF NOT EXISTS watch_events (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  movie_id INT NOT NULL,
+  watched_at DATE NOT NULL,
+  notes VARCHAR(500),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE,
+  INDEX idx_movie (movie_id),
+  INDEX idx_watched_at (watched_at)
 );

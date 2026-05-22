@@ -1,14 +1,13 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../auth.jsx';
 import { useMaybe } from '../maybe.jsx';
 import StartMaybeModal from './StartMaybeModal.jsx';
 
 export default function Header() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { active } = useMaybe();
   const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
 
   return (
     <>
@@ -26,7 +25,6 @@ export default function Header() {
           <>
             <NavLink to="/profile" className="header-pill" title="Your profile">{user.name}</NavLink>
             {user.is_admin && <NavLink to="/admin" className="header-pill">Admin</NavLink>}
-            <button onClick={async () => { await logout(); navigate('/'); }}>Sign out</button>
           </>
         ) : (
           <>

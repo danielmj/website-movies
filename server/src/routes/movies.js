@@ -115,7 +115,7 @@ router.get('/', optionalAuth, async (req, res, next) => {
     const [movies] = await pool.query(`
       SELECT id, tmdb_id, imdb_id, title, year, decade, duration_minutes,
              imdb_rating, poster_url, overview, bechdel_rating, bechdel_passes,
-             added_by_user_id, created_at
+             notes, added_by_user_id, created_at
       FROM movies
       ORDER BY created_at DESC
     `);
@@ -156,8 +156,17 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
 
     const result = { ...rows[0], genres: genres.map((g) => g.genre) };
 
-    // Anonymous viewers see metadata only — no per-user table, no watch
-    // history. The frontend gates the UI sections on user state.
+    // Manual watch events are public (just dates + free-text notes).
+    const [watchEvents] = await pool.query(
+      `SELECT id, watched_at, notes
+       FROM watch_events WHERE movie_id = ?
+       ORDER BY watched_at DESC`,
+      [id],
+    );
+    result.watch_events = watchEvents;
+
+    // Anonymous viewers see metadata only — no per-user table, no Maybe-
+    // session watch history. The frontend gates the UI sections on user state.
     if (req.session && req.session.userId) {
       const [allUsers] = await pool.query('SELECT id, name FROM users ORDER BY name');
       const [um] = await pool.query(
