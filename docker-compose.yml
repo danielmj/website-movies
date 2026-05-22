@@ -1,0 +1,46 @@
+networks:
+  platform-net:
+    external: true
+
+services:
+  movies-api:
+    image: danmjacks/movies-api
+    container_name: movies-api
+    restart: on-failure
+    build:
+      context: ./server
+      args:
+        NODE_ENV: ${NODE_ENV}
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: 4000
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: app
+      MYSQL_PASSWORD: ${APP_MYSQL_PASSWORD}
+      MYSQL_DATABASE: movies
+      SESSION_SECRET: ${MOVIES_SESSION_SECRET}
+      CORS_ORIGIN: ${MOVIES_CORS_ORIGIN:-https://maybemoviemondays.com}
+      TMDB_API_KEY: ${TMDB_API_KEY}
+      OMDB_API_KEY: ${OMDB_API_KEY}
+    ports:
+      - "3007:4000"
+    networks:
+      - platform-net
+
+  movies-app:
+    image: danmjacks/movies-app
+    container_name: movies-app
+    restart: on-failure
+    depends_on:
+      - movies-api
+    build:
+      context: ./app
+      args:
+        NODE_ENV: ${NODE_ENV}
+    environment:
+      NODE_ENV: ${NODE_ENV}
+    ports:
+      - "3008:80"
+    networks:
+      - platform-net

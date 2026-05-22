@@ -1,0 +1,28 @@
+name: movies
+project: movies
+compose: docker-compose.yml
+
+env:
+  required:
+    - NODE_ENV
+    - APP_MYSQL_PASSWORD
+    - MOVIES_SESSION_SECRET
+    - TMDB_API_KEY
+    - OMDB_API_KEY
+
+mysql:
+  databases:
+    - database: movies
+      user: app
+      password_env: APP_MYSQL_PASSWORD
+
+local:
+  infra:
+    - mysql
+  processes:
+    - name: api
+      dir: server
+      command: npm run dev
+    - name: web
+      dir: app
+      command: npm run dev
