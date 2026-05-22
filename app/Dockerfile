@@ -1,7 +1,10 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm install
+# --include=dev forces vite (a devDependency) to install even if the build
+# environment has NODE_ENV=production. Without this, `npm run build` fails
+# with "vite: not found".
+RUN npm ci --include=dev
 COPY . .
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
