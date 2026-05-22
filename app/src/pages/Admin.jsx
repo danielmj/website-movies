@@ -89,6 +89,8 @@ export default function Admin() {
     <div className="container">
       <h1 style={{ marginTop: 0 }}>Admin</h1>
 
+      <ApiUsageMeters />
+
       <MovieDataTools />
 
       <h2 style={{ marginTop: '2rem' }}>Users</h2>
@@ -157,6 +159,111 @@ export default function Admin() {
       )}
     </div>
   );
+}
+
+function ApiUsageMeters() {
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState(null);
+
+  async function load() {
+    try {
+      setData(await api.get('/api/admin/api-usage'));
+    } catch (e) {
+      setErr(e.message);
+    }
+  }
+  useEffect(() => {
+    load();
+    // Refresh in the background so the meter feels live without spamming.
+    const id = setInterval(load, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (err) return <section className="card error" style={{ marginTop: '1rem' }}>API usage: {err}</section>;
+  if (!data) return null;
+
+  return (
+    <section className="card" style={{ marginTop: '1rem' }}>
+      <div className="spread">
+        <h2 style={{ margin: 0 }}>API usage</h2>
+        <button onClick={load} style={{ fontSize: '0.85rem' }}>Refresh</button>
+      </div>
+      <div className="api-meters">
+        {data.services.map((s) => <ApiMeter key={s.service} stats={s} />)}
+      </div>
+    </section>
+  );
+}
+
+function ApiMeter({ stats }) {
+  const { service, today, last_hour, last_minute, errors_total, last_call_at, total, limits } = stats;
+  const dailyCap = limits?.daily ?? null;
+  const dailyPct = dailyCap ? Math.min(100, Math.round((today / dailyCap) * 100)) : null;
+  const dailyClass = dailyPct === null ? '' : dailyPct >= 90 ? 'danger' : dailyPct >= 70 ? 'warn' : '';
+
+  const perSecCap = limits?.per_second ?? null;
+  // last_minute / 60 ≈ recent calls/sec average. Useful as an early warning
+  // even though the server-side rate limiter would catch a real spike first.
+  const recentRate = last_minute / 60;
+  const ratePct = perSecCap ? Math.min(100, Math.round((recentRate / perSecCap) * 100)) : null;
+
+  return (
+    <div className="api-meter">
+      <div className="spread" style={{ alignItems: 'baseline' }}>
+        <strong>{service.toUpperCase()}</strong>
+        <span style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>
+          {last_call_at ? `last call ${fmtRelative(last_call_at)}` : 'no calls yet'}
+        </span>
+      </div>
+
+      {dailyCap !== null ? (
+        <div style={{ marginTop: '0.5rem' }}>
+          <div className="meter-row">
+            <span>Today</span>
+            <span>{today.toLocaleString()} / {dailyCap.toLocaleString()} ({dailyPct}%)</span>
+          </div>
+          <div className={`meter-bar ${dailyClass}`}>
+            <span style={{ width: `${dailyPct}%` }} />
+          </div>
+        </div>
+      ) : (
+        <div className="meter-row" style={{ marginTop: '0.5rem' }}>
+          <span>Today</span>
+          <span>{today.toLocaleString()} <span style={{ color: 'var(--muted)' }}>(no daily cap)</span></span>
+        </div>
+      )}
+
+      {perSecCap !== null && (
+        <div style={{ marginTop: '0.5rem' }}>
+          <div className="meter-row">
+            <span>Recent rate</span>
+            <span>~{recentRate.toFixed(2)} / {perSecCap}/sec ({ratePct}%)</span>
+          </div>
+          <div className={`meter-bar ${ratePct >= 80 ? 'danger' : ratePct >= 50 ? 'warn' : ''}`}>
+            <span style={{ width: `${ratePct}%` }} />
+          </div>
+        </div>
+      )}
+
+      <div className="meter-row" style={{ color: 'var(--muted)', fontSize: '0.8rem', marginTop: '0.4rem' }}>
+        <span>Last hour: {last_hour.toLocaleString()} · 90-day total: {total.toLocaleString()}</span>
+        <span>{errors_total > 0 ? `${errors_total} errors` : ''}</span>
+      </div>
+    </div>
+  );
+}
+
+function fmtRelative(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const ms = Date.now() - d.getTime();
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return d.toLocaleString();
 }
 
 function MovieDataTools() {

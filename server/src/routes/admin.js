@@ -6,6 +6,7 @@ const { requireAuth, requireAdmin } = require('../auth');
 const tmdb = require('../services/tmdb');
 const omdb = require('../services/omdb');
 const bechdel = require('../services/bechdel');
+const usage = require('../services/usage');
 
 const router = express.Router();
 
@@ -378,6 +379,16 @@ router.delete('/watch-events/:id', requireAdmin, async (req, res, next) => {
     const [r] = await pool.query('DELETE FROM watch_events WHERE id = ?', [id]);
     if (!r.affectedRows) return res.status(404).json({ error: 'not found' });
     res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// External API usage — counts of TMDB / OMDB / Bechdel calls + each
+// provider's published quota so the admin panel can render meters.
+router.get('/api-usage', requireAdmin, async (req, res, next) => {
+  try {
+    res.json({ services: await usage.summary() });
   } catch (err) {
     next(err);
   }

@@ -98,3 +98,15 @@ CREATE TABLE IF NOT EXISTS watch_events (
   INDEX idx_movie (movie_id),
   INDEX idx_watched_at (watched_at)
 );
+
+-- Append-only log of external-API calls so the admin panel can show usage
+-- vs each provider's daily quota (e.g. OMDB's 1000/day). Pruned automatically
+-- to the last 90 days; counts are aggregated per-service via grouped SUMs
+-- so this table stays cheap to query even after weeks of activity.
+CREATE TABLE IF NOT EXISTS api_usage (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  service VARCHAR(32) NOT NULL,
+  called_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  status_code SMALLINT NULL,
+  INDEX idx_service_time (service, called_at)
+);

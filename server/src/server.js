@@ -64,3 +64,7 @@ const port = Number(process.env.PORT) || 4000;
 app.listen(port, () => {
   console.log(`movies-server listening on :${port}`);
 });
+
+// Prune the api_usage table once a day so it doesn't grow unbounded.
+const usage = require('./services/usage');
+setInterval(() => { usage.pruneOlderThan90Days(); }, 24 * 60 * 60 * 1000);

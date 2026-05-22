@@ -332,6 +332,39 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
 }
 .candidate .info .title { font-size: 0.85rem; line-height: 1.2; }
 .candidate .info .muted { color: var(--muted); font-size: 0.75rem; }
+
+.api-meters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.api-meter {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+.meter-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+.meter-bar {
+  margin-top: 0.25rem;
+  height: 6px;
+  background: var(--bg);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.meter-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--good);
+  transition: width 0.4s ease;
+}
+.meter-bar.warn   > span { background: var(--accent); }
+.meter-bar.danger > span { background: var(--accent-2); }
 .pill {
   font-size: 0.7rem;
   padding: 0.15rem 0.45rem;
@@ -406,6 +439,27 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
   transform: scale(1.05);
 }
 .rating-pill:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Standalone "Want to see?" pill — sits next to the seen/haven't-seen
+ * toggle on cards. Self-contained (its own background/border) instead of
+ * being part of a SegmentedControl group, since it's an independent flag. */
+.want-pill {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.want-pill:hover:not(:disabled):not(.active) { border-color: var(--accent); color: var(--text); }
+.want-pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a1300;
+  font-weight: 600;
+}
+.want-pill:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .preview-card {
   background: var(--panel);

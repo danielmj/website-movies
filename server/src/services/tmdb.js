@@ -1,6 +1,7 @@
 // TMDB v3 client. Requires TMDB_API_KEY env var.
 // https://developer.themoviedb.org/reference/intro/getting-started
 const fetch = require('node-fetch');
+const usage = require('./usage');
 
 const BASE = 'https://api.themoviedb.org/3';
 const IMG_BASE = 'https://image.tmdb.org/t/p/w500';
@@ -14,6 +15,7 @@ function key() {
 async function search(query) {
   const url = `${BASE}/search/movie?query=${encodeURIComponent(query)}&include_adult=false&language=en-US&page=1&api_key=${key()}`;
   const r = await fetch(url);
+  usage.record('tmdb', r.status);
   if (!r.ok) throw new Error(`TMDB search failed: ${r.status}`);
   const j = await r.json();
   return (j.results || []).map((m) => ({
@@ -28,6 +30,7 @@ async function search(query) {
 async function details(tmdbId) {
   const url = `${BASE}/movie/${tmdbId}?append_to_response=external_ids&language=en-US&api_key=${key()}`;
   const r = await fetch(url);
+  usage.record('tmdb', r.status);
   if (!r.ok) throw new Error(`TMDB details failed: ${r.status}`);
   const m = await r.json();
   const year = m.release_date ? Number(m.release_date.slice(0, 4)) : null;
