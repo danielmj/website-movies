@@ -7,6 +7,12 @@ function requireAuth(req, res, next) {
   next();
 }
 
+// Like requireAuth but never blocks. Use for endpoints that work for both
+// logged-in and anonymous viewers — handler reads req.session.userId itself
+// to decide whether to attach user-specific fields. The session middleware
+// already populates req.session, so this is mostly here for symmetry/grep.
+function optionalAuth(_req, _res, next) { next(); }
+
 async function requireAdmin(req, res, next) {
   if (!req.session || !req.session.userId) {
     return res.status(401).json({ error: 'not authenticated' });
@@ -39,4 +45,4 @@ function touchLastSeen(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireAdmin, touchLastSeen };
+module.exports = { requireAuth, optionalAuth, requireAdmin, touchLastSeen };

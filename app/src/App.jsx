@@ -10,6 +10,7 @@ import MovieList from './pages/MovieList.jsx';
 import MovieDetail from './pages/MovieDetail.jsx';
 import AddMovie from './pages/AddMovie.jsx';
 import MaybeMovie from './pages/MaybeMovie.jsx';
+import Profile from './pages/Profile.jsx';
 import Admin from './pages/Admin.jsx';
 
 function Protected({ children }) {
@@ -27,19 +28,16 @@ function AdminOnly({ children }) {
   return children;
 }
 
-export default function App() {
+function GuestOnly({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="container">Loading…</div>;
+  if (user) return <Navigate to="/" replace />;
+  return children;
+}
 
-  if (!user) {
-    return (
-      <Routes>
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    );
-  }
+export default function App() {
+  const { loading } = useAuth();
+  if (loading) return <div className="container">Loading…</div>;
 
   return (
     <MaybeProvider>
@@ -47,10 +45,13 @@ export default function App() {
       <ImpersonationBanner />
       <MaybeBanner />
       <Routes>
-        <Route path="/" element={<Protected><MovieList /></Protected>} />
-        <Route path="/movies/:id" element={<Protected><MovieDetail /></Protected>} />
+        <Route path="/" element={<MovieList />} />
+        <Route path="/movies/:id" element={<MovieDetail />} />
+        <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
+        <Route path="/signup" element={<GuestOnly><Signup /></GuestOnly>} />
         <Route path="/add" element={<Protected><AddMovie /></Protected>} />
         <Route path="/maybe" element={<Protected><MaybeMovie /></Protected>} />
+        <Route path="/profile" element={<Protected><Profile /></Protected>} />
         <Route path="/admin" element={<AdminOnly><Admin /></AdminOnly>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

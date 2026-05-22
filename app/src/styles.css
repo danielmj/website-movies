@@ -140,10 +140,39 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
   background-size: cover;
   background-position: center;
 }
-.movie-card .body { padding: 0.75rem; flex: 1; display: flex; flex-direction: column; gap: 0.4rem; }
+.movie-card .body {
+  padding: 0.75rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  container-type: inline-size;
+  container-name: card;
+}
 .movie-card h3 { margin: 0; font-size: 1rem; line-height: 1.2; }
 .movie-card .meta { color: var(--muted); font-size: 0.8rem; }
 .movie-card .pills { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
+
+/* When the card is narrow enough that a horizontal pill would wrap awkwardly,
+ * restyle the SegmentedControl as a vertical picker instead. Threshold is
+ * roughly the width below which 3 status options + padding stop fitting on
+ * one line. The card's body is the container, so this is independent of
+ * viewport width — works whether you're on mobile or just have a narrow
+ * grid column. */
+@container card (max-width: 240px) {
+  .movie-card .segmented {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    border-radius: 10px;
+    padding: 4px;
+  }
+  .movie-card .segmented button {
+    text-align: left;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+  }
+}
 .card-remove {
   padding: 0;
   width: 1.6rem;
@@ -215,6 +244,31 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
   letter-spacing: 0.04em;
 }
 .user-status-table tr.no-response td { color: var(--muted); }
+
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+.profile-list { list-style: none; padding: 0; margin: 0.5rem 0 0; display: grid; gap: 0.4rem; }
+.profile-list .profile-row {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.4rem;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--text);
+}
+.profile-list .profile-row:hover { background: var(--panel-2); text-decoration: none; }
+.profile-list .poster {
+  width: 44px;
+  aspect-ratio: 2/3;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--panel-2);
+  border-radius: 4px;
+}
+.profile-list .info .title { font-weight: 500; }
+.profile-list .info .muted { color: var(--muted); font-size: 0.85rem; }
 .pill {
   font-size: 0.7rem;
   padding: 0.15rem 0.45rem;
@@ -521,7 +575,13 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
 }
 
 @media (max-width: 520px) {
-  .movie-grid { grid-template-columns: 1fr; }
+  /* Two compact cards per row on phones — single column made the poster
+   * too dominant. The cards stay narrow enough that the segmented control
+   * trips the container query above and stacks vertically. */
+  .movie-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
   .search-results { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 
   .header h1, .container h1 { font-size: 1.4rem; }

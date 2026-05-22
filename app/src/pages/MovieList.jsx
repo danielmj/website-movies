@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
+import { useAuth } from '../auth.jsx';
 import MovieCard from '../components/MovieCard.jsx';
 
 export default function MovieList() {
+  const { user } = useAuth();
   const [movies, setMovies] = useState(null);
   const [err, setErr] = useState(null);
   const [q, setQ] = useState('');
@@ -35,18 +37,25 @@ export default function MovieList() {
         <h1 style={{ margin: 0 }}>Movies</h1>
         <span style={{ color: 'var(--muted)' }}>{movies.length} in the list</span>
       </div>
-      <form onSubmit={startAdd} className="row quick-add">
-        <input
-          type="text"
-          placeholder="Add a movie — search by title…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        <button className="primary" disabled={!q.trim()}>Search</button>
-      </form>
+      {user ? (
+        <form onSubmit={startAdd} className="row quick-add">
+          <input
+            type="text"
+            placeholder="Add a movie — search by title…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <button className="primary" disabled={!q.trim()}>Search</button>
+        </form>
+      ) : (
+        <div className="card" style={{ marginBottom: '1rem' }}>
+          <Link to="/login">Sign in</Link> to rate these movies, add new ones,
+          or start a Maybe Movie session.
+        </div>
+      )}
       {movies.length === 0 ? (
-        <div className="card">No movies yet. Click <strong>Add</strong> to add one.</div>
+        <div className="card">No movies yet.{user ? ' Use the search above to add one.' : ''}</div>
       ) : (
         <div className="movie-grid">
           {movies.map((m) => (

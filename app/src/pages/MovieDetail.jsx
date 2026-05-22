@@ -36,7 +36,9 @@ export default function MovieDetail() {
   if (err) return <div className="container error">{err}</div>;
   if (!movie) return <div className="container">Loading…</div>;
 
-  const me = movie.user_movies.find((u) => u.user_id === user.id);
+  const me = user && movie.user_movies
+    ? movie.user_movies.find((u) => u.user_id === user.id)
+    : null;
 
   async function setStatus(status, rating = null) {
     setBusy(true);
@@ -50,13 +52,15 @@ export default function MovieDetail() {
   }
 
   // Sort: responders first (seen, want, not_interested), no-response last.
-  const orderedUsers = [...movie.user_movies].sort((a, b) => {
-    const order = { seen: 0, want_to_see: 1, not_interested: 2 };
-    const ar = a.status === null ? 99 : (order[a.status] ?? 50);
-    const br = b.status === null ? 99 : (order[b.status] ?? 50);
-    if (ar !== br) return ar - br;
-    return a.name.localeCompare(b.name);
-  });
+  const orderedUsers = movie.user_movies
+    ? [...movie.user_movies].sort((a, b) => {
+        const order = { seen: 0, want_to_see: 1, not_interested: 2 };
+        const ar = a.status === null ? 99 : (order[a.status] ?? 50);
+        const br = b.status === null ? 99 : (order[b.status] ?? 50);
+        if (ar !== br) return ar - br;
+        return a.name.localeCompare(b.name);
+      })
+    : [];
 
   return (
     <div className="container detail">
@@ -90,60 +94,72 @@ export default function MovieDetail() {
         </div>
       </div>
 
-      <section className="card" style={{ marginTop: '1rem' }}>
-        <h2 style={{ marginTop: 0 }}>Your rating</h2>
-        <SegmentedControl
-          value={me?.status || null}
-          onChange={(s) => setStatus(s, s === 'seen' ? me?.rating || 'rec' : null)}
-          options={STATUSES}
-          disabled={busy}
-        />
-        {me?.status === 'seen' && (
-          <div style={{ marginTop: '0.5rem' }}>
-            <RatingPicker value={me.rating} onChange={(r) => setStatus('seen', r)} disabled={busy} />
-          </div>
-        )}
-      </section>
+      {user ? (
+        <>
+          <section className="card" style={{ marginTop: '1rem' }}>
+            <h2 style={{ marginTop: 0 }}>Your rating</h2>
+            <SegmentedControl
+              value={me?.status || null}
+              onChange={(s) => setStatus(s, s === 'seen' ? me?.rating || 'rec' : null)}
+              options={STATUSES}
+              disabled={busy}
+            />
+            {me?.status === 'seen' && (
+              <div style={{ marginTop: '0.5rem' }}>
+                <RatingPicker value={me.rating} onChange={(r) => setStatus('seen', r)} disabled={busy} />
+              </div>
+            )}
+          </section>
 
-      <section className="card" style={{ marginTop: '1rem' }}>
-        <h2 style={{ marginTop: 0 }}>Who's seen it</h2>
-        <table className="user-status-table">
-          <thead>
-            <tr>
-              <th>Person</th>
-              <th>Status</th>
-              <th>Rating</th>
-              <th>Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orderedUsers.map((u) => (
-              <tr key={u.user_id} className={u.status === null ? 'no-response' : ''}>
-                <td>{u.name}{u.user_id === user.id ? ' (you)' : ''}</td>
-                <td>{statusLabel(u.status)}</td>
-                <td>{u.status === 'seen' && u.rating ? RATING_LABEL[u.rating] : '—'}</td>
-                <td>{fmtDate(u.updated_at) || '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+          <section className="card" style={{ marginTop: '1rem' }}>
+            <h2 style={{ marginTop: 0 }}>Who's seen it</h2>
+            <div className="table-scroll">
+              <table className="user-status-table">
+                <thead>
+                  <tr>
+                    <th>Person</th>
+                    <th>Status</th>
+                    <th>Rating</th>
+                    <th>Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orderedUsers.map((u) => (
+                    <tr key={u.user_id} className={u.status === null ? 'no-response' : ''}>
+                      <td>{u.name}{u.user_id === user.id ? ' (you)' : ''}</td>
+                      <td>{statusLabel(u.status)}</td>
+                      <td>{u.status === 'seen' && u.rating ? RATING_LABEL[u.rating] : '—'}</td>
+                      <td>{fmtDate(u.updated_at) || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-      <section className="card" style={{ marginTop: '1rem' }}>
-        <h2 style={{ marginTop: 0 }}>Watch history</h2>
-        {movie.watch_history.length === 0 ? (
-          <p style={{ color: 'var(--muted)' }}>Never watched as part of a Maybe Movie session.</p>
-        ) : (
-          <ul style={{ paddingLeft: '1rem', margin: 0 }}>
-            {movie.watch_history.map((w) => (
-              <li key={w.id} style={{ marginBottom: '0.4rem' }}>
-                <strong>{fmtDate(w.ended_at)}</strong>
-                {w.attendees ? <span style={{ color: 'var(--muted)' }}> — with {w.attendees}</span> : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+          <section className="card" style={{ marginTop: '1rem' }}>
+            <h2 style={{ marginTop: 0 }}>Watch history</h2>
+            {(movie.watch_history || []).length === 0 ? (
+              <p style={{ color: 'var(--muted)' }}>Never watched as part of a Maybe Movie session.</p>
+            ) : (
+              <ul style={{ paddingLeft: '1rem', margin: 0 }}>
+                {movie.watch_history.map((w) => (
+                  <li key={w.id} style={{ marginBottom: '0.4rem' }}>
+                    <strong>{fmtDate(w.ended_at)}</strong>
+                    {w.attendees ? <span style={{ color: 'var(--muted)' }}> — with {w.attendees}</span> : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
+      ) : (
+        <section className="card" style={{ marginTop: '1rem' }}>
+          <p style={{ margin: 0 }}>
+            <Link to="/login">Sign in</Link> to rate this movie and see what others think.
+          </p>
+        </section>
+      )}
     </div>
   );
 }

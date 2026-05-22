@@ -7,7 +7,7 @@ import { useAuth } from '../auth.jsx';
 
 export default function MovieCard({ movie, onChange }) {
   const { user } = useAuth();
-  const me = movie.user_movies.find((u) => u.user_id === user.id);
+  const me = user ? movie.user_movies.find((u) => u.user_id === user.id) : null;
   const [busy, setBusy] = useState(false);
 
   async function setStatus(status, rating = null) {
@@ -36,8 +36,8 @@ export default function MovieCard({ movie, onChange }) {
     }
   }
 
-  const others = movie.user_movies.filter((u) => u.user_id !== user.id);
-  const needsResponse = !me;
+  const others = user ? movie.user_movies.filter((u) => u.user_id !== user.id) : [];
+  const needsResponse = user && !me;
 
   return (
     <div className={`movie-card${needsResponse ? ' needs-response' : ''}`}>
@@ -52,14 +52,16 @@ export default function MovieCard({ movie, onChange }) {
           <h3 style={{ flex: 1 }}>
             <Link to={`/movies/${movie.id}`} className="card-title">{movie.title}</Link>
           </h3>
-          <button
-            type="button"
-            className="card-remove"
-            aria-label={`Remove ${movie.title}`}
-            onClick={removeMovie}
-            disabled={busy}
-            title="Remove from list"
-          >×</button>
+          {user && (
+            <button
+              type="button"
+              className="card-remove"
+              aria-label={`Remove ${movie.title}`}
+              onClick={removeMovie}
+              disabled={busy}
+              title="Remove from list"
+            >×</button>
+          )}
         </div>
         <div className="meta">
           {movie.year || '—'}
@@ -77,31 +79,39 @@ export default function MovieCard({ movie, onChange }) {
           ))}
         </div>
 
-        {needsResponse && (
-          <div className="card-warn" role="note">
-            ⚠ Please mark whether you've seen this
-          </div>
-        )}
+        {user ? (
+          <>
+            {needsResponse && (
+              <div className="card-warn" role="note">
+                ⚠ Please mark whether you've seen this
+              </div>
+            )}
 
-        <div style={{ marginTop: '0.5rem' }}>
-          <SegmentedControl
-            value={me?.status || null}
-            onChange={(s) => setStatus(s, s === 'seen' ? me?.rating || 'rec' : null)}
-            options={STATUSES}
-            disabled={busy}
-          />
-          {me?.status === 'seen' && (
             <div style={{ marginTop: '0.5rem' }}>
-              <RatingPicker value={me.rating} onChange={(r) => setStatus('seen', r)} disabled={busy} />
+              <SegmentedControl
+                value={me?.status || null}
+                onChange={(s) => setStatus(s, s === 'seen' ? me?.rating || 'rec' : null)}
+                options={STATUSES}
+                disabled={busy}
+              />
+              {me?.status === 'seen' && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <RatingPicker value={me.rating} onChange={(r) => setStatus('seen', r)} disabled={busy} />
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {others.length > 0 && (
+            {others.length > 0 && (
+              <div className="meta" style={{ marginTop: '0.5rem' }}>
+                {others
+                  .map((u) => `${u.name}: ${STATUS_LABEL[u.status]}${u.status === 'seen' && u.rating ? ` (${RATING_LABEL[u.rating]})` : ''}`)
+                  .join(' · ')}
+              </div>
+            )}
+          </>
+        ) : (
           <div className="meta" style={{ marginTop: '0.5rem' }}>
-            {others
-              .map((u) => `${u.name}: ${STATUS_LABEL[u.status]}${u.status === 'seen' && u.rating ? ` (${RATING_LABEL[u.rating]})` : ''}`)
-              .join(' · ')}
+            <Link to="/login">Sign in</Link> to rate this movie
           </div>
         )}
       </div>

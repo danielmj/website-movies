@@ -16,15 +16,27 @@ export default function Header() {
         <div className="brand"><Link to="/">Maybe Movie Mondays</Link></div>
         <nav className="nav">
           <NavLink to="/" end>Movies</NavLink>
-          <NavLink to="/add">Add</NavLink>
-          {active && <NavLink to="/maybe">Maybe Movie</NavLink>}
+          {user && <NavLink to="/add">Add</NavLink>}
+          {user && active && <NavLink to="/maybe">Maybe Movie</NavLink>}
+          {user && <NavLink to="/profile">Profile</NavLink>}
         </nav>
-        {!active && (
+        {user && !active && (
           <button className="primary header-cta" onClick={() => setOpen(true)}>Maybe movie?</button>
         )}
-        <span className="user-chip">{user.name}</span>
-        {user.is_admin && <NavLink to="/admin" className="header-admin">Admin</NavLink>}
-        <button onClick={async () => { await logout(); navigate('/login'); }}>Sign out</button>
+        {user ? (
+          <>
+            <span className="user-chip">{user.name}</span>
+            {user.is_admin && <NavLink to="/admin" className="header-admin">Admin</NavLink>}
+            <button onClick={async () => { await logout(); navigate('/'); }}>Sign out</button>
+          </>
+        ) : (
+          <>
+            <Link to="/login" className="header-admin">Sign in</Link>
+            <Link to="/signup" className="primary" style={{ textDecoration: 'none', padding: '0.5rem 0.85rem', borderRadius: 6 }}>
+              Sign up
+            </Link>
+          </>
+        )}
       </header>
       {open && <StartMaybeModal onClose={() => setOpen(false)} />}
     </>

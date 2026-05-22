@@ -1,6 +1,6 @@
 const express = require('express');
 const pool = require('../db');
-const { requireAuth } = require('../auth');
+const { requireAuth, optionalAuth } = require('../auth');
 const tmdb = require('../services/tmdb');
 const omdb = require('../services/omdb');
 const bechdel = require('../services/bechdel');
@@ -107,8 +107,10 @@ router.post('/', requireAuth, async (req, res, next) => {
   }
 });
 
-// List all movies with their aggregated per-user state.
-router.get('/', requireAuth, async (req, res, next) => {
+// List all movies. Public (no auth required) so the homepage works for
+// anonymous visitors, but per-user state (user_movies) is only attached when
+// the caller is logged in — anonymous viewers see metadata only.
+router.get('/', optionalAuth, async (req, res, next) => {
   try {
     const [movies] = await pool.query(`
       SELECT id, tmdb_id, imdb_id, title, year, decade, duration_minutes,
@@ -124,70 +126,72 @@ router.get('/', requireAuth, async (req, res, next) => {
       'SELECT movie_id, genre FROM movie_genres WHERE movie_id IN (?)',
       [ids],
     );
-    const [um] = await pool.query(
-      `SELECT um.movie_id, um.user_id, um.status, um.rating, u.name
-       FROM user_movies um
-       JOIN users u ON u.id = um.user_id
-       WHERE um.movie_id IN (?)`,
-      [ids],
-    );
 
     const byId = new Map(movies.map((m) => [m.id, { ...m, genres: [], user_movies: [] }]));
     for (const g of genres) byId.get(g.movie_id).genres.push(g.genre);
-    for (const r of um) byId.get(r.movie_id).user_movies.push(r);
+
+    if (req.session && req.session.userId) {
+      const [um] = await pool.query(
+        `SELECT um.movie_id, um.user_id, um.status, um.rating, u.name
+         FROM user_movies um
+         JOIN users u ON u.id = um.user_id
+         WHERE um.movie_id IN (?)`,
+        [ids],
+      );
+      for (const r of um) byId.get(r.movie_id).user_movies.push(r);
+    }
+
     res.json([...byId.values()]);
   } catch (err) {
     next(err);
   }
 });
 
-router.get('/:id', requireAuth, async (req, res, next) => {
+router.get('/:id', optionalAuth, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const [rows] = await pool.query('SELECT * FROM movies WHERE id = ?', [id]);
     if (!rows.length) return res.status(404).json({ error: 'not found' });
     const [genres] = await pool.query('SELECT genre FROM movie_genres WHERE movie_id = ?', [id]);
 
-    // Build a per-user row for EVERY user, with status/rating null when they
-    // haven't responded. Lets the detail page distinguish "haven't seen" from
-    // "haven't said anything" — they're not the same thing.
-    const [allUsers] = await pool.query('SELECT id, name FROM users ORDER BY name');
-    const [um] = await pool.query(
-      `SELECT user_id, status, rating, updated_at
-       FROM user_movies WHERE movie_id = ?`,
-      [id],
-    );
-    const byUser = new Map(um.map((r) => [r.user_id, r]));
-    const user_movies = allUsers.map((u) => {
-      const r = byUser.get(u.id);
-      return {
-        user_id: u.id,
-        name: u.name,
-        status: r ? r.status : null,
-        rating: r ? r.rating : null,
-        updated_at: r ? r.updated_at : null,
-      };
-    });
+    const result = { ...rows[0], genres: genres.map((g) => g.genre) };
 
-    // Every Maybe Movie session that ended on this movie. Most-recent first.
-    const [watch_history] = await pool.query(
-      `SELECT ms.id, ms.started_at, ms.ended_at,
-              GROUP_CONCAT(u.name ORDER BY u.name SEPARATOR ', ') AS attendees
-       FROM maybe_sessions ms
-       LEFT JOIN maybe_attendees ma ON ma.session_id = ms.id
-       LEFT JOIN users u ON u.id = ma.user_id
-       WHERE ms.watched_movie_id = ? AND ms.ended_at IS NOT NULL
-       GROUP BY ms.id, ms.started_at, ms.ended_at
-       ORDER BY ms.ended_at DESC`,
-      [id],
-    );
+    // Anonymous viewers see metadata only — no per-user table, no watch
+    // history. The frontend gates the UI sections on user state.
+    if (req.session && req.session.userId) {
+      const [allUsers] = await pool.query('SELECT id, name FROM users ORDER BY name');
+      const [um] = await pool.query(
+        `SELECT user_id, status, rating, updated_at
+         FROM user_movies WHERE movie_id = ?`,
+        [id],
+      );
+      const byUser = new Map(um.map((r) => [r.user_id, r]));
+      result.user_movies = allUsers.map((u) => {
+        const r = byUser.get(u.id);
+        return {
+          user_id: u.id,
+          name: u.name,
+          status: r ? r.status : null,
+          rating: r ? r.rating : null,
+          updated_at: r ? r.updated_at : null,
+        };
+      });
 
-    res.json({
-      ...rows[0],
-      genres: genres.map((g) => g.genre),
-      user_movies,
-      watch_history,
-    });
+      const [watch_history] = await pool.query(
+        `SELECT ms.id, ms.started_at, ms.ended_at,
+                GROUP_CONCAT(u.name ORDER BY u.name SEPARATOR ', ') AS attendees
+         FROM maybe_sessions ms
+         LEFT JOIN maybe_attendees ma ON ma.session_id = ms.id
+         LEFT JOIN users u ON u.id = ma.user_id
+         WHERE ms.watched_movie_id = ? AND ms.ended_at IS NOT NULL
+         GROUP BY ms.id, ms.started_at, ms.ended_at
+         ORDER BY ms.ended_at DESC`,
+        [id],
+      );
+      result.watch_history = watch_history;
+    }
+
+    res.json(result);
   } catch (err) {
     next(err);
   }
