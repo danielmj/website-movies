@@ -22,6 +22,17 @@ export default function MovieCard({ movie, onChange }) {
     }
   }
 
+  async function removeMovie() {
+    if (!confirm(`Remove "${movie.title}" from the list?`)) return;
+    setBusy(true);
+    try {
+      await api.del(`/api/movies/${movie.id}`);
+      onChange();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const others = movie.user_movies.filter((u) => u.user_id !== user.id);
 
   return (
@@ -31,7 +42,17 @@ export default function MovieCard({ movie, onChange }) {
         style={movie.poster_url ? { backgroundImage: `url(${movie.poster_url})` } : {}}
       />
       <div className="body">
-        <h3>{movie.title}</h3>
+        <div className="spread" style={{ gap: '0.5rem' }}>
+          <h3 style={{ flex: 1 }}>{movie.title}</h3>
+          <button
+            type="button"
+            className="card-remove"
+            aria-label={`Remove ${movie.title}`}
+            onClick={removeMovie}
+            disabled={busy}
+            title="Remove from list"
+          >×</button>
+        </div>
         <div className="meta">
           {movie.year || '—'}
           {movie.duration_minutes ? ` · ${movie.duration_minutes}m` : ''}

@@ -136,6 +136,22 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
 .movie-card h3 { margin: 0; font-size: 1rem; line-height: 1.2; }
 .movie-card .meta { color: var(--muted); font-size: 0.8rem; }
 .movie-card .pills { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
+.card-remove {
+  padding: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+  line-height: 1;
+  font-size: 1.1rem;
+  color: var(--muted);
+  background: transparent;
+  border-color: transparent;
+  flex-shrink: 0;
+}
+.card-remove:hover:not(:disabled) {
+  color: white;
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+}
 .pill {
   font-size: 0.7rem;
   padding: 0.15rem 0.45rem;

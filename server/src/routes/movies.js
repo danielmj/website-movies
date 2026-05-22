@@ -159,4 +159,16 @@ router.get('/:id', requireAuth, async (req, res, next) => {
   }
 });
 
+router.delete('/:id', requireAuth, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'invalid id' });
+    const [r] = await pool.query('DELETE FROM movies WHERE id = ?', [id]);
+    if (!r.affectedRows) return res.status(404).json({ error: 'not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

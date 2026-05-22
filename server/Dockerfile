@@ -1,7 +1,12 @@
 FROM node:24-bookworm-slim
 WORKDIR /app
+
+ENV NPM_CONFIG_REGISTRY=https://registry.npmjs.org/ \
+    NPM_CONFIG_USERCONFIG=/dev/null
+
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
+
 COPY src ./src
 ENV NODE_ENV=production
 EXPOSE 4000

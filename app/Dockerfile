@@ -1,8 +1,11 @@
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
 
+ENV NPM_CONFIG_REGISTRY=https://registry.npmjs.org/ \
+    NPM_CONFIG_USERCONFIG=/dev/null
+
 COPY package.json package-lock.json ./
-RUN NODE_ENV= npm ci --include=dev
+RUN NODE_ENV= npm install
 
 COPY . .
 ARG VITE_API_URL
