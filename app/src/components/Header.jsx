@@ -18,12 +18,12 @@ export default function Header() {
           <NavLink to="/" end>Movies</NavLink>
           <NavLink to="/add">Add</NavLink>
           {active && <NavLink to="/maybe">Maybe Movie</NavLink>}
-          {user.is_admin && <NavLink to="/admin">Admin</NavLink>}
         </nav>
         {!active && (
-          <button className="primary" onClick={() => setOpen(true)}>Maybe movie?</button>
+          <button className="primary header-cta" onClick={() => setOpen(true)}>Maybe movie?</button>
         )}
         <span className="user-chip">{user.name}</span>
+        {user.is_admin && <NavLink to="/admin" className="header-admin">Admin</NavLink>}
         <button onClick={async () => { await logout(); navigate('/login'); }}>Sign out</button>
       </header>
       {open && <StartMaybeModal onClose={() => setOpen(false)} />}

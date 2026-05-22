@@ -6,9 +6,9 @@ export default function MaybeBanner() {
   if (!active) return null;
   const names = active.attendees.map((a) => a.name).join(', ');
   return (
-    <Link to="/maybe" className="banner" style={{ color: '#1a1300' }}>
-      <span>Maybe movie! {names ? `with ${names}` : ''}</span>
-      <span>Open →</span>
+    <Link to="/maybe" className="banner">
+      <span className="banner-text">Maybe movie! {names ? `with ${names}` : ''}</span>
+      <span className="banner-cta">Open →</span>
     </Link>
   );
 }

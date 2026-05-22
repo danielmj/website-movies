@@ -147,13 +147,47 @@ router.get('/:id', requireAuth, async (req, res, next) => {
     const [rows] = await pool.query('SELECT * FROM movies WHERE id = ?', [id]);
     if (!rows.length) return res.status(404).json({ error: 'not found' });
     const [genres] = await pool.query('SELECT genre FROM movie_genres WHERE movie_id = ?', [id]);
+
+    // Build a per-user row for EVERY user, with status/rating null when they
+    // haven't responded. Lets the detail page distinguish "haven't seen" from
+    // "haven't said anything" — they're not the same thing.
+    const [allUsers] = await pool.query('SELECT id, name FROM users ORDER BY name');
     const [um] = await pool.query(
-      `SELECT um.user_id, um.status, um.rating, u.name
-       FROM user_movies um JOIN users u ON u.id = um.user_id
-       WHERE um.movie_id = ?`,
+      `SELECT user_id, status, rating, updated_at
+       FROM user_movies WHERE movie_id = ?`,
       [id],
     );
-    res.json({ ...rows[0], genres: genres.map((g) => g.genre), user_movies: um });
+    const byUser = new Map(um.map((r) => [r.user_id, r]));
+    const user_movies = allUsers.map((u) => {
+      const r = byUser.get(u.id);
+      return {
+        user_id: u.id,
+        name: u.name,
+        status: r ? r.status : null,
+        rating: r ? r.rating : null,
+        updated_at: r ? r.updated_at : null,
+      };
+    });
+
+    // Every Maybe Movie session that ended on this movie. Most-recent first.
+    const [watch_history] = await pool.query(
+      `SELECT ms.id, ms.started_at, ms.ended_at,
+              GROUP_CONCAT(u.name ORDER BY u.name SEPARATOR ', ') AS attendees
+       FROM maybe_sessions ms
+       LEFT JOIN maybe_attendees ma ON ma.session_id = ms.id
+       LEFT JOIN users u ON u.id = ma.user_id
+       WHERE ms.watched_movie_id = ? AND ms.ended_at IS NOT NULL
+       GROUP BY ms.id, ms.started_at, ms.ended_at
+       ORDER BY ms.ended_at DESC`,
+      [id],
+    );
+
+    res.json({
+      ...rows[0],
+      genres: genres.map((g) => g.genre),
+      user_movies,
+      watch_history,
+    });
   } catch (err) {
     next(err);
   }

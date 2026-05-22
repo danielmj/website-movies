@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { useMaybe } from '../maybe.jsx';
@@ -9,6 +9,7 @@ const SORTS = {
   haventSeen: 'Most attendees haven\'t seen it',
   recPct: 'Highest rec % (of those who saw it)',
   wantPct: 'Most attendees want to see',
+  noResponse: 'Most attendees haven\'t responded',
   bechdel: 'Bechdel passes first',
   netVotes: 'Up votes (net)',
 };
@@ -28,7 +29,9 @@ export default function MaybeMovie() {
     bechdelOnly: false,
   });
   const [sort, setSort] = useState('haventSeen');
+  const [quickQ, setQuickQ] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     api.get('/api/movies').then(setMovies);
@@ -56,15 +59,20 @@ export default function MaybeMovie() {
     const attendeeUm = m.user_movies.filter((u) => attendeeIds.has(u.user_id));
     const seen = attendeeUm.filter((u) => u.status === 'seen');
     const want = attendeeUm.filter((u) => u.status === 'want_to_see');
+    const haventSeenResponses = attendeeUm.filter(
+      (u) => u.status === 'want_to_see' || u.status === 'not_interested',
+    );
+    const noResponseCount = attendeeIds.size - attendeeUm.length;
     const recPositive = seen.filter((u) => POSITIVE_RATINGS.has(u.rating));
-    const haventSeenCount = attendeeIds.size - seen.length;
     const myVote = active.votes.find((v) => v.user_id === user.id && v.movie_id === m.id);
     const ups = active.votes.filter((v) => v.movie_id === m.id && v.vote === 'up').length;
     const downs = active.votes.filter((v) => v.movie_id === m.id && v.vote === 'down').length;
     return {
       ...m,
       _attendeeUm: attendeeUm,
-      _haventSeen: haventSeenCount,
+      _seenCount: seen.length,
+      _haventSeen: haventSeenResponses.length,
+      _noResponse: noResponseCount,
       _recPct: seen.length ? recPositive.length / seen.length : null,
       _wantPct: attendeeIds.size ? want.length / attendeeIds.size : 0,
       _anyHated: attendeeUm.some((u) => u.rating === 'really_dont_like'),
@@ -77,7 +85,7 @@ export default function MaybeMovie() {
 
   const filtered = annotated.filter((m) => {
     if (filters.hideHated && m._anyHated) return false;
-    if (filters.onlyUnseen && m._haventSeen !== attendeeIds.size) return false;
+    if (filters.onlyUnseen && m._seenCount > 0) return false;
     if (filters.genre && !(m.genres || []).includes(filters.genre)) return false;
     if (filters.maxMinutes && (m.duration_minutes || 0) > Number(filters.maxMinutes)) return false;
     if (filters.decade && Number(m.decade) !== Number(filters.decade)) return false;
@@ -90,6 +98,7 @@ export default function MaybeMovie() {
       case 'haventSeen': return b._haventSeen - a._haventSeen;
       case 'recPct': return (b._recPct ?? -1) - (a._recPct ?? -1);
       case 'wantPct': return b._wantPct - a._wantPct;
+      case 'noResponse': return b._noResponse - a._noResponse;
       case 'bechdel': return Number(!!b.bechdel_passes) - Number(!!a.bechdel_passes);
       case 'netVotes': return b._netVotes - a._netVotes;
       default: return 0;
@@ -117,6 +126,25 @@ export default function MaybeMovie() {
           <button onClick={() => setEditingAttendees(true)}>Edit attendees</button>
         </div>
       </div>
+
+      <form
+        className="row quick-add"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const t = quickQ.trim();
+          if (!t) return;
+          navigate(`/add?q=${encodeURIComponent(t)}`, { state: { from: location.pathname } });
+        }}
+      >
+        <input
+          type="text"
+          placeholder="Add a movie to consider — search by title…"
+          value={quickQ}
+          onChange={(e) => setQuickQ(e.target.value)}
+          style={{ flex: 1 }}
+        />
+        <button className="primary" disabled={!quickQ.trim()}>Search</button>
+      </form>
 
       <div className="toolbar">
         <div className="field">
@@ -182,7 +210,9 @@ export default function MaybeMovie() {
                 {m.genres?.length ? ` · ${m.genres.join(', ')}` : ''}
               </div>
               <div className="stats">
-                {m._haventSeen}/{attendeeIds.size} haven't seen ·
+                {m._seenCount}/{attendeeIds.size} seen ·
+                {' '}{m._haventSeen} haven't seen
+                {m._noResponse > 0 ? ` · ${m._noResponse} no response` : ''} ·
                 {' '}{m._recPct === null ? 'no ratings yet' : `${Math.round(m._recPct * 100)}% rec`} ·
                 {' '}{Math.round(m._wantPct * 100)}% want to see
               </div>

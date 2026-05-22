@@ -7,6 +7,7 @@ import ImpersonationBanner from './components/ImpersonationBanner.jsx';
 import Login from './pages/Login.jsx';
 import Signup from './pages/Signup.jsx';
 import MovieList from './pages/MovieList.jsx';
+import MovieDetail from './pages/MovieDetail.jsx';
 import AddMovie from './pages/AddMovie.jsx';
 import MaybeMovie from './pages/MaybeMovie.jsx';
 import Admin from './pages/Admin.jsx';
@@ -47,6 +48,7 @@ export default function App() {
       <MaybeBanner />
       <Routes>
         <Route path="/" element={<Protected><MovieList /></Protected>} />
+        <Route path="/movies/:id" element={<Protected><MovieDetail /></Protected>} />
         <Route path="/add" element={<Protected><AddMovie /></Protected>} />
         <Route path="/maybe" element={<Protected><MaybeMovie /></Protected>} />
         <Route path="/admin" element={<AdminOnly><Admin /></AdminOnly>} />

@@ -71,25 +71,33 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
   position: sticky;
   top: 0;
   z-index: 50;
+  flex-wrap: wrap;
 }
 .brand { font-weight: 700; letter-spacing: 0.02em; font-size: 1.05rem; }
 .brand a { color: var(--text); }
-.nav { display: flex; gap: 0.75rem; align-items: center; flex: 1; }
+.nav { display: flex; gap: 0.75rem; align-items: center; flex: 1; min-width: 0; }
 .nav a { color: var(--muted); }
 .nav a.active { color: var(--text); }
 .user-chip { color: var(--muted); }
+.header-admin { color: var(--muted); }
+.header-admin.active { color: var(--text); }
 
 .banner {
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   color: #1a1300;
-  padding: 0.6rem 1.25rem;
+  padding: 0.95rem 1.25rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   font-weight: 600;
+  font-size: 1.05rem;
+  text-decoration: none;
   cursor: pointer;
 }
-.banner:hover { filter: brightness(1.05); }
+.banner:hover { filter: brightness(1.05); text-decoration: none; }
+.banner .banner-text { flex: 1; min-width: 0; }
+.banner .banner-cta { white-space: nowrap; }
 
 .container {
   max-width: 1100px;
@@ -152,6 +160,61 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
   background: var(--accent-2);
   border-color: var(--accent-2);
 }
+.movie-card .card-title {
+  color: var(--text);
+  text-decoration: none;
+}
+.movie-card .card-title:hover { color: var(--accent); }
+.movie-card.needs-response { border-color: var(--accent); }
+.card-warn {
+  background: rgba(255, 209, 102, 0.12);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.detail .detail-head {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+.detail .detail-poster {
+  width: 220px;
+  aspect-ratio: 2/3;
+  background: var(--panel-2);
+  background-size: cover;
+  background-position: center;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.detail .detail-meta {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.user-status-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.user-status-table th,
+.user-status-table td {
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.user-status-table th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.user-status-table tr.no-response td { color: var(--muted); }
 .pill {
   font-size: 0.7rem;
   padding: 0.15rem 0.45rem;
@@ -405,4 +468,68 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
   padding: 0.3rem 0.55rem;
   font-size: 0.8rem;
   margin-right: 0.25rem;
+}
+
+.quick-add { gap: 0.5rem; margin-bottom: 1rem; }
+
+/* ----- Mobile / narrow-viewport layout ---------------------------------
+ *
+ * The default styles target desktop. Below the breakpoints below, we
+ * re-flow the header (nav drops below the brand on the smallest screens),
+ * tighten paddings, single-column the movie grid, stack the detail page
+ * head, and let the maybe-movie toolbar wrap cleanly. Tables that don't
+ * fit (admin, user-status) get horizontal scroll instead of squashing.
+ */
+
+@media (max-width: 800px) {
+  .container { padding: 1rem 0.85rem; }
+
+  .header { gap: 0.5rem; padding: 0.6rem 0.85rem; }
+  .brand { font-size: 1rem; }
+  .nav { gap: 0.5rem; flex: 1 0 auto; order: 5; width: 100%; }
+  .nav a { font-size: 0.95rem; }
+  .header-cta { order: 2; }
+  .user-chip { display: none; }
+  .header-admin { order: 4; }
+
+  .banner { padding: 0.85rem 1rem; font-size: 1rem; }
+
+  .movie-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .toolbar { gap: 0.6rem; }
+  .toolbar .field { min-width: 140px; }
+
+  .movie-row {
+    grid-template-columns: 70px 1fr;
+    grid-template-rows: auto auto;
+    gap: 0.5rem;
+  }
+  .movie-row .right {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .detail .detail-poster { width: 160px; margin: 0 auto; }
+  .detail .detail-meta { min-width: 0; }
+
+  .user-status-table { font-size: 0.85rem; }
+  .user-status-table th, .user-status-table td { padding: 0.35rem 0.4rem; }
+}
+
+@media (max-width: 520px) {
+  .movie-grid { grid-template-columns: 1fr; }
+  .search-results { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+
+  .header h1, .container h1 { font-size: 1.4rem; }
+
+  /* Tables that have too many columns to squash — let them scroll. */
+  .admin-table-wrap, .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .admin-table { min-width: 520px; }
 }

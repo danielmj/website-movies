@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import RatingPicker, { RATING_LABEL, STATUS_LABEL, STATUSES } from './RatingPicker.jsx';
 import SegmentedControl from './SegmentedControl.jsx';
@@ -22,7 +23,9 @@ export default function MovieCard({ movie, onChange }) {
     }
   }
 
-  async function removeMovie() {
+  async function removeMovie(e) {
+    e.preventDefault();
+    e.stopPropagation();
     if (!confirm(`Remove "${movie.title}" from the list?`)) return;
     setBusy(true);
     try {
@@ -34,16 +37,21 @@ export default function MovieCard({ movie, onChange }) {
   }
 
   const others = movie.user_movies.filter((u) => u.user_id !== user.id);
+  const needsResponse = !me;
 
   return (
-    <div className="movie-card">
-      <div
+    <div className={`movie-card${needsResponse ? ' needs-response' : ''}`}>
+      <Link
+        to={`/movies/${movie.id}`}
         className="poster"
+        aria-label={`Open ${movie.title} details`}
         style={movie.poster_url ? { backgroundImage: `url(${movie.poster_url})` } : {}}
       />
       <div className="body">
         <div className="spread" style={{ gap: '0.5rem' }}>
-          <h3 style={{ flex: 1 }}>{movie.title}</h3>
+          <h3 style={{ flex: 1 }}>
+            <Link to={`/movies/${movie.id}`} className="card-title">{movie.title}</Link>
+          </h3>
           <button
             type="button"
             className="card-remove"
@@ -68,6 +76,12 @@ export default function MovieCard({ movie, onChange }) {
             <span key={g} className="pill">{g}</span>
           ))}
         </div>
+
+        {needsResponse && (
+          <div className="card-warn" role="note">
+            ⚠ Please mark whether you've seen this
+          </div>
+        )}
 
         <div style={{ marginTop: '0.5rem' }}>
           <SegmentedControl

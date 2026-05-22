@@ -1,11 +1,17 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import RatingPicker, { STATUSES } from '../components/RatingPicker.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
 
 export default function AddMovie() {
-  const [q, setQ] = useState('');
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const initialQ = searchParams.get('q') || '';
+  const returnTo = location.state?.from || '/';
+
+  const [q, setQ] = useState(initialQ);
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
 
@@ -19,19 +25,28 @@ export default function AddMovie() {
   const [adding, setAdding] = useState(false);
   const [err, setErr] = useState(null);
 
-  const navigate = useNavigate();
+  // If we arrived with ?q=... pre-filled (from MovieList / MaybeMovie quick-add),
+  // run the search immediately so the user sees results without an extra tap.
+  useEffect(() => {
+    if (initialQ.trim()) doSearch(initialQ.trim());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  async function search(e) {
-    e.preventDefault();
+  async function doSearch(query) {
     setSearching(true);
     setErr(null);
     try {
-      setResults(await api.get(`/api/movies/search?q=${encodeURIComponent(q)}`));
+      setResults(await api.get(`/api/movies/search?q=${encodeURIComponent(query)}`));
     } catch (e) {
       setErr(e.message);
     } finally {
       setSearching(false);
     }
+  }
+
+  async function search(e) {
+    e.preventDefault();
+    await doSearch(q);
   }
 
   async function pick(r) {
@@ -55,7 +70,7 @@ export default function AddMovie() {
         status,
         rating: status === 'seen' ? rating : null,
       });
-      navigate('/');
+      navigate(returnTo);
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -65,7 +80,12 @@ export default function AddMovie() {
 
   return (
     <div className="container">
-      <h1 style={{ marginTop: 0 }}>Add a movie</h1>
+      <div className="spread" style={{ marginBottom: '1rem' }}>
+        <h1 style={{ margin: 0 }}>Add a movie</h1>
+        {returnTo !== '/add' && (
+          <button type="button" onClick={() => navigate(returnTo)}>← Back</button>
+        )}
+      </div>
 
       {!preview && !previewLoading && (
         <>
