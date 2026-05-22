@@ -79,6 +79,20 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
 .nav a { color: var(--muted); }
 .nav a.active { color: var(--text); }
 .user-chip { color: var(--muted); }
+.header-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.75rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.header-pill:hover { border-color: var(--accent); text-decoration: none; }
+.header-pill.active { background: var(--panel); border-color: var(--accent); }
 .header-admin { color: var(--muted); }
 .header-admin.active { color: var(--text); }
 
@@ -319,6 +333,31 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
 }
 .segmented button:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Emoji rating picker — five standalone pills, not a single grouped pill.
+ * Stays on one row even in narrow cards because each button is just an
+ * emoji glyph. Hover/active mirrors .segmented for visual consistency. */
+.rating-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.rating-pill {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.55rem;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.rating-pill:hover:not(:disabled):not(.active) { border-color: var(--accent); }
+.rating-pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: scale(1.05);
+}
+.rating-pill:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .preview-card {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -544,6 +583,7 @@ input[type=text], input[type=email], input[type=password], input[type=number], s
   .nav a { font-size: 0.95rem; }
   .header-cta { order: 2; }
   .user-chip { display: none; }
+  .header-pill { padding: 0.35rem 0.6rem; font-size: 0.85rem; }
   .header-admin { order: 4; }
 
   .banner { padding: 0.85rem 1rem; font-size: 1rem; }

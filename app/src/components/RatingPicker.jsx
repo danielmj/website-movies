@@ -1,8 +1,5 @@
-import SegmentedControl from './SegmentedControl.jsx';
-
-// Short labels are what fits inside a narrow movie card. Full labels are
-// kept around for places with more room (detail page, "others' status" line,
-// session summaries) so the meaning isn't lost.
+// Full names are kept for places with room (detail page, profile, "others'
+// status" line). The picker itself uses emoji pills below.
 const RATINGS_FULL = [
   ['high_rec', 'Highly recommend'],
   ['rec', 'Recommend'],
@@ -11,6 +8,19 @@ const RATINGS_FULL = [
   ['really_dont_like', 'Despise'],
 ];
 
+// Each rating renders as its own standalone emoji pill — five separate
+// buttons so the layout stays a single row even on narrow cards. Order
+// matches the gradient love → hate.
+const RATING_EMOJIS = [
+  ['high_rec', '😍'],
+  ['rec', '🙂'],
+  ['neutral', '😐'],
+  ['dont_like', '🙁'],
+  ['really_dont_like', '🤮'],
+];
+
+// RATINGS is still exported (key/label tuple list) for any caller that
+// wants the canonical short labels — "Love", "Like", etc.
 export const RATINGS = [
   ['high_rec', 'Love'],
   ['rec', 'Like'],
@@ -30,5 +40,23 @@ export const STATUS_LABEL = Object.fromEntries(STATUSES);
 export const POSITIVE_RATINGS = new Set(['high_rec', 'rec']);
 
 export default function RatingPicker({ value, onChange, disabled }) {
-  return <SegmentedControl value={value} onChange={onChange} options={RATINGS} disabled={disabled} />;
+  return (
+    <div className="rating-pills" role="radiogroup" aria-label="Rating">
+      {RATING_EMOJIS.map(([key, emoji]) => (
+        <button
+          key={key}
+          type="button"
+          role="radio"
+          aria-checked={value === key}
+          aria-label={RATING_LABEL[key]}
+          title={RATING_LABEL[key]}
+          className={`rating-pill${value === key ? ' active' : ''}`}
+          disabled={disabled}
+          onClick={() => onChange(key)}
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
 }
