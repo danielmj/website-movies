@@ -30,3 +30,9 @@ local:
     - name: web
       dir: app
       command: npm run dev
+
+deploy:
+  setup:
+    - name: init-db
+      service: movies-api
+      command: node src/init-db.js
