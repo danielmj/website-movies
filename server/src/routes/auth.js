@@ -27,7 +27,14 @@ router.post('/signup', async (req, res, next) => {
     );
 
     req.session.userId = result.insertId;
-    res.json({ id: result.insertId, name, email });
+    res.json({
+      id: result.insertId,
+      name,
+      email,
+      is_admin: false,
+      impersonating_admin_id: null,
+      admin_name: null,
+    });
   } catch (err) {
     next(err);
   }
@@ -37,13 +44,20 @@ router.post('/login', async (req, res, next) => {
   try {
     const email = (req.body.email || '').trim().toLowerCase();
     const password = req.body.password || '';
-    const [rows] = await pool.query('SELECT id, name, email, password_hash FROM users WHERE email = ?', [email]);
+    const [rows] = await pool.query('SELECT id, name, email, password_hash, is_admin FROM users WHERE email = ?', [email]);
     if (!rows.length) return res.status(401).json({ error: 'invalid credentials' });
     const user = rows[0];
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ error: 'invalid credentials' });
     req.session.userId = user.id;
-    res.json({ id: user.id, name: user.name, email: user.email });
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      is_admin: !!user.is_admin,
+      impersonating_admin_id: null,
+      admin_name: null,
+    });
   } catch (err) {
     next(err);
   }

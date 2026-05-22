@@ -27,12 +27,14 @@ export function AuthProvider({ children }) {
     loading,
     refresh,
     async login(email, password) {
-      await api.post('/api/auth/login', { email, password });
-      return refresh();
+      const u = await api.post('/api/auth/login', { email, password });
+      setUser(u && typeof u === 'object' && u.id ? u : null);
+      return u;
     },
     async signup(name, email, password) {
-      await api.post('/api/auth/signup', { name, email, password });
-      return refresh();
+      const u = await api.post('/api/auth/signup', { name, email, password });
+      setUser(u && typeof u === 'object' && u.id ? u : null);
+      return u;
     },
     async logout() {
       await api.post('/api/auth/logout');
