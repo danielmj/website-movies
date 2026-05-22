@@ -19,6 +19,10 @@ mysql:
 local:
   infra:
     - mysql
+  setup:
+    - name: init-db
+      dir: server
+      command: npm run init-db
   processes:
     - name: api
       dir: server
