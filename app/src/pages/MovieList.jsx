@@ -162,7 +162,11 @@ function MovieListItem({ movie, onChange }) {
           <div className="muted">
             {movie.duration_minutes ? `${movie.duration_minutes}m` : '—'}
             {movie.imdb_rating ? ` · ⭐ ${movie.imdb_rating}` : ''}
-            {movie.bechdel_passes ? ' · Bechdel ✓' : ''}
+            {movie.bechdel_passes ? (
+              <> · <span style={{ color: 'var(--good)' }}>Bechdel ✓</span></>
+            ) : movie.bechdel_passes === 0 ? (
+              <> · <span style={{ color: 'var(--bad)' }}>Bechdel ✗</span></>
+            ) : null}
             {movie.genres?.length ? ` · ${movie.genres.slice(0, 2).join(', ')}` : ''}
           </div>
         </Link>

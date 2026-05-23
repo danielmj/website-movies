@@ -289,7 +289,11 @@ export default function MaybeMovie() {
                 <div className="stats">
                   {m.duration_minutes ? `${m.duration_minutes}m` : '—'}
                   {m.imdb_rating ? ` · ⭐ ${m.imdb_rating}` : ''}
-                  {m.bechdel_passes ? ' · Bechdel ✓' : m.bechdel_passes === 0 ? ' · Bechdel ✗' : ''}
+                  {m.bechdel_passes ? (
+                    <> · <span style={{ color: 'var(--good)' }}>Bechdel ✓</span></>
+                  ) : m.bechdel_passes === 0 ? (
+                    <> · <span style={{ color: 'var(--bad)' }}>Bechdel ✗</span></>
+                  ) : null}
                   {m.genres?.length ? ` · ${m.genres.join(', ')}` : ''}
                 </div>
                 <div className="stats">
