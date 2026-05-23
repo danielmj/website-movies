@@ -90,3 +90,8 @@ app.listen(port, () => {
 // Prune the api_usage table once a day so it doesn't grow unbounded.
 const usage = require('./services/usage');
 setInterval(() => { usage.pruneOlderThan90Days(); }, 24 * 60 * 60 * 1000);
+
+// Seed the Bechdel-results table on startup if empty. Idempotent —
+// subsequent boots are a no-op once the rows are there.
+const bechdel = require('./services/bechdel');
+bechdel.seedFromJson();

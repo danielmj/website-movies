@@ -25,9 +25,9 @@ export default function AddMovie() {
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
 
-  // Bechdel mode: we fetch the full passing list once (cached on the server
-  // for an hour) and filter client-side. ~10k entries — totally fine in
-  // memory, and keeps typing responsive without round-trips.
+  // Bechdel mode: we fetch the full dataset once and filter client-side.
+  // ~10k entries — totally fine in memory, and keeps typing responsive
+  // without round-trips. Searches span pass + fail.
   const [bechdelList, setBechdelList] = useState(null);
   const [bechdelLoading, setBechdelLoading] = useState(false);
 
@@ -71,7 +71,9 @@ export default function AddMovie() {
     setBechdelLoading(true);
     setErr(null);
     try {
-      setBechdelList(await fetchBechdelDirect());
+      // Server returns the full bechdel_movies table (both passes and
+      // fails). We filter by title client-side as the user types.
+      setBechdelList(await api.get('/api/movies/bechdel-list'));
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -85,56 +87,18 @@ export default function AddMovie() {
     if (next === 'bechdel') loadBechdel();
   }
 
-  // Fetch the Bechdel-passing list directly from bechdeltest.com (their API
-  // serves CORS, so the browser can call it with no proxy). Try the bulk
-  // getAllMovies endpoint first; on failure (it sometimes returns 410),
-  // fall back to per-year fetches for the last 30 years in parallel batches.
-  async function fetchBechdelDirect() {
-    const norm = (raw) => raw
-      .filter((m) => Number(m.rating) === 3 && m.imdbid && m.title)
-      .map((m) => ({
-        imdb_id: 'tt' + String(m.imdbid),
-        title: m.title,
-        year: m.year ? Number(m.year) : null,
-      }))
-      .sort((a, b) => (b.year || 0) - (a.year || 0));
-
-    try {
-      const r = await fetch('https://bechdeltest.com/api/v1/getAllMovies');
-      if (r.ok) {
-        const all = await r.json();
-        if (Array.isArray(all) && all.length) return norm(all);
-      }
-    } catch { /* fall through to per-year */ }
-
-    const thisYear = new Date().getFullYear();
-    const years = [];
-    for (let y = thisYear; y > thisYear - 30; y--) years.push(y);
-    const collected = [];
-    const batchSize = 6;
-    for (let i = 0; i < years.length; i += batchSize) {
-      const arrays = await Promise.all(years.slice(i, i + batchSize).map(async (y) => {
-        try {
-          const r = await fetch(`https://bechdeltest.com/api/v1/getMoviesByYear?year=${y}`);
-          if (!r.ok) return [];
-          return await r.json();
-        } catch { return []; }
-      }));
-      for (const a of arrays) if (Array.isArray(a)) collected.push(...a);
-    }
-    return norm(collected);
-  }
-
-  // Filter happens here, not on the server, so typing is instant. Limit
-  // the rendered list to a reasonable number — DOM gets unhappy past
-  // ~1000 items and there's no point scrolling 10k titles.
+  // Default view (no query): just the latest 3 years available so the page
+  // doesn't render 10k rows on first paint. As soon as the user types, we
+  // search across the entire dataset — passes and fails alike.
   const filteredBechdel = useMemo(() => {
     if (!bechdelList) return [];
     const needle = q.trim().toLowerCase();
-    const list = needle
-      ? bechdelList.filter((m) => m.title.toLowerCase().includes(needle))
-      : bechdelList;
-    return list.slice(0, 500);
+    if (needle) {
+      return bechdelList.filter((m) => m.title.toLowerCase().includes(needle));
+    }
+    if (!bechdelList.length) return [];
+    const maxYear = bechdelList[0].year;
+    return bechdelList.filter((m) => m.year >= maxYear - 2);
   }, [bechdelList, q]);
 
   async function pickByTmdb(r) {
@@ -303,29 +267,50 @@ export default function AddMovie() {
   );
 }
 
-// Tall scrollable list, one row per Bechdel-passer. Bechdeltest doesn't
-// publish poster URLs so rows are text-only — we re-fetch full metadata
-// (poster, runtime, genres, IMDb rating) on click via /preview-by-imdb.
+// Tall grouped-by-year list of movies in the bechdel dataset. Default view
+// shows the latest 3 years; typing in the search bar filters across the
+// whole table (passes and fails). Click → re-fetch via /preview-by-imdb to
+// surface poster + runtime + IMDb rating before the user commits.
 function BechdelList({ loading, total, shown, filter, items, onPick }) {
   if (loading) return <div className="card" style={{ marginTop: '1rem' }}>Loading the Bechdel list…</div>;
   if (!total) return null;
+  const filtering = filter.trim() !== '';
+
+  // Group by year, preserving the server's newest-first order.
+  const byYear = [];
+  let lastYear = null;
+  for (const m of items) {
+    if (m.year !== lastYear) {
+      byYear.push({ year: m.year, movies: [] });
+      lastYear = m.year;
+    }
+    byYear[byYear.length - 1].movies.push(m);
+  }
+
   return (
     <>
       <div style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: '0.5rem' }}>
-        {filter.trim()
-          ? `${shown.toLocaleString()} of ${total.toLocaleString()} match "${filter.trim()}"${shown >= 500 ? ' (showing first 500)' : ''}`
-          : `${total.toLocaleString()} Bechdel-passing movies (showing newest 500 — type to filter)`}
+        {filtering
+          ? `${shown.toLocaleString()} match${shown === 1 ? '' : 'es'} for "${filter.trim()}"`
+          : `Showing the latest 3 years (${shown.toLocaleString()} movies) — type to search the full ${total.toLocaleString()}-title dataset`}
       </div>
-      <ul className="bechdel-list">
-        {items.map((m) => (
-          <li key={m.imdb_id}>
-            <button type="button" className="bechdel-row" onClick={() => onPick(m)}>
-              <span className="title">{m.title}</span>
-              <span className="muted">{m.year || ''}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      {byYear.map((group) => (
+        <div key={group.year} className="bechdel-year-group">
+          <h3 className="bechdel-year-heading">{group.year}</h3>
+          <ul className="bechdel-list">
+            {group.movies.map((m) => (
+              <li key={m.imdb_id}>
+                <button type="button" className="bechdel-row" onClick={() => onPick(m)}>
+                  <span className={`pill ${m.passes ? 'good' : 'bad'} bechdel-status`}>
+                    {m.passes ? 'Pass' : 'Fail'}
+                  </span>
+                  <span className="title">{m.title}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </>
   );
 }

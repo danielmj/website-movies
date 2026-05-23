@@ -753,15 +753,23 @@ a.pill:hover, a.pill-link:hover {
 .search-result h4 { margin: 0; font-size: 0.85rem; }
 .search-result .meta { color: var(--muted); font-size: 0.75rem; }
 
-/* Tall scrollable text-only list of Bechdel-passing movies. Rendered on the
+/* Text-only list of Bechdel-tested movies, grouped by year. Rendered on the
  * Add page when the user picks Browse mode. Each row is a button that
- * triggers a TMDB lookup-by-imdb on click. */
+ * triggers a TMDB lookup-by-imdb on click. The whole page scrolls — no
+ * inner scroll container. */
+.bechdel-year-group { margin-top: 1rem; }
+.bechdel-year-heading {
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+}
 .bechdel-list {
   list-style: none;
   padding: 0;
-  margin: 0.75rem 0 0;
-  max-height: 60vh;
-  overflow-y: auto;
+  margin: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
 }
@@ -783,6 +791,13 @@ a.pill:hover, a.pill-link:hover {
 .bechdel-row:hover { background: var(--panel-2); border-color: transparent; }
 .bechdel-row .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bechdel-row .muted { color: var(--muted); font-size: 0.85rem; flex-shrink: 0; margin-left: 0.5rem; }
+.bechdel-row .bechdel-status {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  margin-right: 0.6rem;
+  min-width: 2.6em;
+  text-align: center;
+}
 
 .toolbar {
   display: flex;

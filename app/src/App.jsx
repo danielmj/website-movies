@@ -13,6 +13,7 @@ import MaybeMovie from './pages/MaybeMovie.jsx';
 import Profile from './pages/Profile.jsx';
 import UserProfile from './pages/UserProfile.jsx';
 import Admin from './pages/Admin.jsx';
+import ImportFormats from './pages/ImportFormats.jsx';
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="/profile" element={<Protected><Profile /></Protected>} />
         <Route path="/users/:id" element={<Protected><UserProfile /></Protected>} />
         <Route path="/admin" element={<AdminOnly><Admin /></AdminOnly>} />
+        <Route path="/admin/import-formats" element={<AdminOnly><ImportFormats /></AdminOnly>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </MaybeProvider>

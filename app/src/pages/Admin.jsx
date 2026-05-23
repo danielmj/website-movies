@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 
@@ -311,12 +311,16 @@ function fmtRelative(iso) {
 function MovieDataTools() {
   return (
     <section style={{ marginTop: '1rem' }}>
-      <h2 style={{ marginTop: 0 }}>Movie data</h2>
+      <div className="spread" style={{ alignItems: 'baseline' }}>
+        <h2 style={{ marginTop: 0, marginBottom: '0.5rem' }}>Movie data</h2>
+        <Link to="/admin/import-formats" style={{ fontSize: '0.85rem' }}>JSON formats →</Link>
+      </div>
       <div className="row" style={{ flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
         <ExportButton />
         <ImportDumpButton />
       </div>
       <ImportTitles />
+      <ImportBechdel />
     </section>
   );
 }
@@ -533,6 +537,198 @@ function ImportRow({ item, onChoice, onInclude }) {
               <input
                 type="radio"
                 name={`row-${item.input.title}`}
+                checked={item.chosen_tmdb_id === c.tmdb_id}
+                onChange={() => onChoice(c.tmdb_id)}
+                style={{ display: 'none' }}
+              />
+              <div
+                className="poster"
+                style={c.poster_url ? { backgroundImage: `url(${c.poster_url})` } : {}}
+              />
+              <div className="info">
+                <div className="title">{c.title}</div>
+                <div className="muted">{c.year || '—'}</div>
+              </div>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Bechdel-data import: paste an array of `{title, year, passes}` (or with
+// `imdb_id` to skip TMDB lookup), the server fuzz-matches each to TMDB,
+// admin resolves any ambiguities, the commit step upserts to the local
+// `bechdel_movies` table.
+function ImportBechdel() {
+  const [text, setText] = useState(`[
+  {"title": "Dune: Part Two", "year": 2024, "passes": true},
+  {"title": "Wicked: For Good", "year": 2025, "passes": true}
+]`);
+  const [items, setItems] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const [committed, setCommitted] = useState(null);
+
+  async function search() {
+    setErr(null);
+    setCommitted(null);
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) throw new Error('expected an array');
+    } catch (e) {
+      setErr(`couldn't parse JSON: ${e.message}`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await api.post('/api/admin/bechdel/import-titles/search', { items: parsed });
+      const next = r.items.map((it) => ({
+        ...it,
+        chosen_tmdb_id: it.chosen_tmdb_id ?? null,
+        chosen_imdb_id: it.chosen_imdb_id ?? null,
+        include: it.status === 'auto' || it.status === 'needs_confirm',
+      }));
+      setItems(next);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function setChoice(idx, tmdbId) {
+    setItems((prev) => prev.map((it, i) => i === idx ? { ...it, chosen_tmdb_id: tmdbId } : it));
+  }
+  function setInclude(idx, on) {
+    setItems((prev) => prev.map((it, i) => i === idx ? { ...it, include: on } : it));
+  }
+  function setPasses(idx, on) {
+    setItems((prev) => prev.map((it, i) => i === idx ? { ...it, passes: on } : it));
+  }
+
+  async function commit() {
+    const payload = items
+      .filter((it) => it.include && (it.chosen_imdb_id || it.chosen_tmdb_id))
+      .map((it) => ({
+        title: it.input.title,
+        year: it.input.year,
+        passes: !!it.passes,
+        imdb_id: it.chosen_imdb_id || undefined,
+        tmdb_id: it.chosen_tmdb_id || undefined,
+      }));
+    if (!payload.length) {
+      setErr('nothing selected with a chosen match');
+      return;
+    }
+    setBusy(true); setErr(null);
+    try {
+      const r = await api.post('/api/admin/bechdel/import-titles/commit', { items: payload });
+      setCommitted(r.items);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: '1rem' }}>
+      <h3 style={{ marginTop: 0 }}>Import Bechdel data</h3>
+      <p style={{ color: 'var(--muted)', marginTop: 0 }}>
+        Paste an array of <code>{'{ "title", "year", "passes" }'}</code>. Each
+        entry is matched to a TMDB title (using year as a hint when given) so
+        we can grab its IMDb id, then upserted into our <code>bechdel_movies</code>
+        table. <Link to="/admin/import-formats">Format reference →</Link>
+      </p>
+      <textarea
+        rows={8}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        style={{ width: '100%', fontFamily: 'monospace', fontSize: '0.85rem' }}
+      />
+      <div className="row" style={{ marginTop: '0.5rem', gap: '0.5rem' }}>
+        <button className="primary" onClick={search} disabled={busy}>
+          {busy && !items ? 'Searching…' : 'Search'}
+        </button>
+        {items && (
+          <button onClick={commit} disabled={busy}>
+            {busy ? 'Saving…' : `Save ${items.filter((it) => it.include && (it.chosen_imdb_id || it.chosen_tmdb_id)).length} entries`}
+          </button>
+        )}
+      </div>
+      {err && <div className="error">{err}</div>}
+
+      {items && (
+        <div style={{ marginTop: '1rem', display: 'grid', gap: '0.75rem' }}>
+          {items.map((it, idx) => (
+            <BechdelImportRow
+              key={idx}
+              item={it}
+              onChoice={(t) => setChoice(idx, t)}
+              onInclude={(on) => setInclude(idx, on)}
+              onPasses={(on) => setPasses(idx, on)}
+            />
+          ))}
+        </div>
+      )}
+
+      {committed && (
+        <div className="card" style={{ marginTop: '1rem', background: 'var(--panel-2)' }}>
+          <strong>Done.</strong>{' '}
+          {committed.filter((c) => c.ok).length} saved,{' '}
+          {committed.filter((c) => !c.ok).length} failed.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BechdelImportRow({ item, onChoice, onInclude, onPasses }) {
+  const badge = STATUS_BADGE[item.status] || { label: item.status, cls: '' };
+  const showCandidates = item.candidates.length > 0 && !item.chosen_imdb_id;
+  return (
+    <div className="card" style={{ padding: '0.75rem' }}>
+      <div className="spread" style={{ alignItems: 'flex-start', gap: '0.5rem' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600 }}>
+            {item.input.title || <em>(empty)</em>}
+            {item.input.year ? <span style={{ color: 'var(--muted)' }}> ({item.input.year})</span> : null}
+          </div>
+          {item.chosen_imdb_id && (
+            <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
+              imdb_id provided: {item.chosen_imdb_id}
+            </div>
+          )}
+        </div>
+        <span className={`pill ${badge.cls}`} style={{ flexShrink: 0 }}>{badge.label}</span>
+        <label style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem' }}>
+          <input
+            type="checkbox"
+            checked={!!item.passes}
+            onChange={(e) => onPasses(e.target.checked)}
+          />
+          passes
+        </label>
+        <label style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.85rem' }}>
+          <input
+            type="checkbox"
+            checked={item.include}
+            onChange={(e) => onInclude(e.target.checked)}
+            disabled={item.status === 'no_results' || item.status === 'empty'}
+          />
+          include
+        </label>
+      </div>
+      {showCandidates && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.5rem', marginTop: '0.5rem' }}>
+          {item.candidates.map((c) => (
+            <label key={c.tmdb_id} className={`candidate ${item.chosen_tmdb_id === c.tmdb_id ? 'chosen' : ''}`}>
+              <input
+                type="radio"
+                name={`bechdel-row-${item.input.title}`}
                 checked={item.chosen_tmdb_id === c.tmdb_id}
                 onChange={() => onChoice(c.tmdb_id)}
                 style={{ display: 'none' }}

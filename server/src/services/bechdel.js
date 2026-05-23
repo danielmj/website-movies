@@ -1,35 +1,79 @@
-// bechdeltest.com public API. No key required, no published rate limit.
-// rating: 0..3 — 3 means it passes (two named women talk to each other about something other than a man).
-const fetch = require('node-fetch');
-const usage = require('./usage');
+// Bechdel-test lookups, served from a local MySQL table seeded at server
+// boot from server/data/bechdel-movies.json. The bechdeltest.com API got
+// retired so we ship the data ourselves — same fields the API used to
+// return, sourced from the FiveThirtyEight Bechdel CSV.
+//
+// On boot, seedFromJson() ensures `bechdel_movies` is populated. Lookup is
+// just a primary-key SELECT on imdb_id.
+
+const fs = require('fs');
+const path = require('path');
+const pool = require('../db');
 
 async function lookup(imdbId) {
   if (!imdbId) return { rating: null, passes: null };
-  const stripped = imdbId.replace(/^tt/, '');
+  const stripped = imdbId.startsWith('tt') ? imdbId : `tt${imdbId}`;
   try {
-    const url = `https://bechdeltest.com/api/v1/getMovieByImdbId?imdbid=${encodeURIComponent(stripped)}`;
-    const r = await fetch(url);
-    usage.record('bechdel', r.status);
-    if (!r.ok) return { rating: null, passes: null };
-    const j = await r.json();
-    // Bechdeltest returns `status` as a string ("404") when the movie isn't
-    // tested yet; loose equality covers both the string and number cases.
-    // It also occasionally returns the full row but with `rating` as a
-    // string — coerce before checking.
-    if (!j) return { rating: null, passes: null };
-    if (j.status != null && Number(j.status) === 404) return { rating: null, passes: null };
-    if (j.rating === undefined || j.rating === null || j.rating === '') {
-      return { rating: null, passes: null };
-    }
-    const rating = Number(j.rating);
-    return {
-      rating: Number.isFinite(rating) ? rating : null,
-      passes: Number.isFinite(rating) ? rating >= 3 : null,
-    };
+    const [rows] = await pool.query(
+      'SELECT passes FROM bechdel_movies WHERE imdb_id = ?',
+      [stripped],
+    );
+    if (!rows.length) return { rating: null, passes: null };
+    const passes = !!rows[0].passes;
+    return { rating: passes ? 3 : 0, passes };
   } catch {
-    usage.record('bechdel', 0);
     return { rating: null, passes: null };
   }
 }
 
-module.exports = { lookup };
+// Full bechdel dataset for the Add page's browse mode. Sorted newest-first
+// so the client can render grouped-by-year sections in a sensible order.
+// ~10k rows / ~750KB — fine to ship in one shot, gives the search bar full
+// reach across the entire dataset.
+async function listForBrowse() {
+  const [rows] = await pool.query(`
+    SELECT imdb_id, title, year, passes
+    FROM bechdel_movies
+    ORDER BY year DESC, title
+  `);
+  return rows.map((r) => ({ ...r, passes: !!r.passes }));
+}
+
+// Seed `bechdel_movies` from the bundled JSON file. Re-seeds whenever the
+// row count in the DB doesn't match the file (so dropping in a refreshed
+// dataset just requires a server restart). Skips when the file is missing.
+async function seedFromJson() {
+  try {
+    const file = path.join(__dirname, '..', '..', 'data', 'bechdel-movies.json');
+    if (!fs.existsSync(file)) {
+      console.warn('[bechdel] no data file at', file, '— table left empty');
+      return;
+    }
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (!Array.isArray(data) || !data.length) return;
+
+    const [count] = await pool.query('SELECT COUNT(*) AS c FROM bechdel_movies');
+    if (count[0].c === data.length) return;  // nothing changed; skip the rewrite
+
+    if (count[0].c > 0) {
+      console.log(`[bechdel] dataset changed (${count[0].c} rows in DB vs ${data.length} in file) — re-seeding`);
+      await pool.query('TRUNCATE TABLE bechdel_movies');
+    }
+
+    // Bulk insert in chunks of 500 to keep packet size sane.
+    const chunkSize = 500;
+    for (let i = 0; i < data.length; i += chunkSize) {
+      const chunk = data.slice(i, i + chunkSize);
+      const values = chunk.map((m) => [m.imdb_id, m.title, m.year, m.passes ? 1 : 0]);
+      await pool.query(
+        'INSERT IGNORE INTO bechdel_movies (imdb_id, title, year, passes) VALUES ?',
+        [values],
+      );
+    }
+    console.log(`[bechdel] seeded ${data.length} movies into bechdel_movies`);
+  } catch (err) {
+    console.error('[bechdel] seed failed:', err.message);
+  }
+}
+
+module.exports = { lookup, listForBrowse, seedFromJson };

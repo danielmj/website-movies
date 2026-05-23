@@ -123,6 +123,18 @@ CREATE TABLE IF NOT EXISTS watch_events (
   INDEX idx_watched_at (watched_at)
 );
 
+-- Cached Bechdel test results. Seeded from server/data/bechdel-movies.json
+-- on server boot (the bechdeltest.com API was retired). Keyed by IMDb id
+-- for direct lookup; secondary index on (year, passes) so the "browse"
+-- query can grab the last few years' passers cheaply.
+CREATE TABLE IF NOT EXISTS bechdel_movies (
+  imdb_id VARCHAR(20) PRIMARY KEY,
+  title VARCHAR(500) NOT NULL,
+  year INT NOT NULL,
+  passes BOOLEAN NOT NULL,
+  INDEX idx_year_passes (year, passes)
+);
+
 -- Append-only log of external-API calls so the admin panel can show usage
 -- vs each provider's daily quota (e.g. OMDB's 1000/day). Pruned automatically
 -- to the last 90 days; counts are aggregated per-service via grouped SUMs

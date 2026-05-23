@@ -46,6 +46,16 @@ router.get('/preview-by-imdb/:imdbId', requireAuth, async (req, res, next) => {
   }
 });
 
+// Full bechdel-test dataset for the Add page's browse mode. The frontend
+// filters by title client-side as the user types — across passes and fails.
+router.get('/bechdel-list', requireAuth, async (req, res, next) => {
+  try {
+    res.json(await bechdel.listForBrowse());
+  } catch (err) {
+    next(err);
+  }
+});
+
 async function previewByTmdbId(tmdbId) {
   const meta = await tmdb.details(tmdbId);
   const [imdbRating, bech] = await Promise.all([

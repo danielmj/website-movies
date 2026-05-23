@@ -399,6 +399,140 @@ router.delete('/watch-events/:id', requireAdmin, async (req, res, next) => {
   }
 });
 
+// ---------- bechdel data import ------------------------------------------
+
+// Phase 1 of the Bechdel import flow. Accepts an array of:
+//   { title, year?, passes, imdb_id? }
+// For each entry: if imdb_id is given (any "tt..." form), fast-path it to
+// "auto" with no TMDB lookup. Otherwise search TMDB by title (+ year hint
+// if present) and return up to 5 candidates so the admin can resolve any
+// ambiguity in the UI before the commit step writes to bechdel_movies.
+router.post('/bechdel/import-titles/search', requireAdmin, async (req, res, next) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : null;
+    if (!items) return res.status(400).json({ error: 'expected { items: [{ title, year?, passes, imdb_id? }] }' });
+
+    const out = [];
+    for (const it of items) {
+      const title = String(it.title || '').trim();
+      const year = it.year ? Number(it.year) : null;
+      const passes = !!it.passes;
+      if (!title) {
+        out.push({ input: it, status: 'empty', candidates: [] });
+        continue;
+      }
+
+      // Direct imdb_id provided — skip the TMDB search, mark auto.
+      if (it.imdb_id) {
+        const imdb = String(it.imdb_id).startsWith('tt')
+          ? String(it.imdb_id)
+          : 'tt' + String(it.imdb_id);
+        out.push({
+          input: it,
+          status: 'auto',
+          chosen_imdb_id: imdb,
+          chosen_tmdb_id: null,
+          passes,
+          candidates: [],
+        });
+        continue;
+      }
+
+      let candidates = [];
+      try {
+        candidates = (await tmdb.search(title)).slice(0, 5);
+      } catch (e) {
+        out.push({ input: it, status: 'search_failed', error: e.message, passes, candidates: [] });
+        continue;
+      }
+
+      const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const exact = candidates.filter((c) => norm(c.title) === norm(title));
+      const yearScoped = year
+        ? candidates.filter((c) => c.year === year)
+        : candidates;
+      const exactYear = exact.filter((c) => year ? c.year === year : true);
+
+      let status, chosen_tmdb_id = null;
+      if (!candidates.length) {
+        status = 'no_results';
+      } else if (exactYear.length === 1) {
+        status = 'auto';
+        chosen_tmdb_id = exactYear[0].tmdb_id;
+      } else if (year && yearScoped.length === 1) {
+        status = 'auto';
+        chosen_tmdb_id = yearScoped[0].tmdb_id;
+      } else {
+        status = 'needs_confirm';
+      }
+
+      out.push({
+        input: it,
+        status,
+        chosen_tmdb_id,
+        chosen_imdb_id: null,
+        passes,
+        candidates,
+      });
+    }
+    res.json({ items: out });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Phase 2: take resolved selections (each with either chosen_tmdb_id OR
+// chosen_imdb_id, plus title/year/passes) and upsert into bechdel_movies.
+// For tmdb-resolved entries we fetch the imdb_id via tmdb.details first.
+router.post('/bechdel/import-titles/commit', requireAdmin, async (req, res, next) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : null;
+    if (!items) return res.status(400).json({ error: 'expected { items: [...] }' });
+
+    const results = [];
+    for (const it of items) {
+      let imdbId = it.imdb_id || null;
+      if (!imdbId && it.tmdb_id) {
+        try {
+          const meta = await tmdb.details(Number(it.tmdb_id));
+          imdbId = meta.imdb_id || null;
+        } catch (e) {
+          results.push({ ...it, ok: false, error: `tmdb fetch failed: ${e.message}` });
+          continue;
+        }
+      }
+      if (!imdbId) {
+        results.push({ ...it, ok: false, error: 'no imdb_id available' });
+        continue;
+      }
+      if (!imdbId.startsWith('tt')) imdbId = 'tt' + imdbId;
+
+      const title = String(it.title || '').trim();
+      const year = it.year ? Number(it.year) : null;
+      const passes = !!it.passes;
+      if (!title || !year) {
+        results.push({ ...it, ok: false, error: 'title and year are required' });
+        continue;
+      }
+
+      try {
+        await pool.query(
+          `INSERT INTO bechdel_movies (imdb_id, title, year, passes)
+           VALUES (?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE title = VALUES(title), year = VALUES(year), passes = VALUES(passes)`,
+          [imdbId, title, year, passes ? 1 : 0],
+        );
+        results.push({ ...it, ok: true, imdb_id: imdbId });
+      } catch (e) {
+        results.push({ ...it, ok: false, error: e.message });
+      }
+    }
+    res.json({ items: results });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // External API usage — counts of TMDB / OMDB / Bechdel calls + each
 // provider's published quota so the admin panel can render meters.
 router.get('/api-usage', requireAdmin, async (req, res, next) => {
