@@ -176,23 +176,38 @@ export default function MaybeMovie() {
             onChange={(e) => setFilters({ ...filters, maxMinutes: e.target.value })}
           />
         </div>
-        <div className="field" style={{ display: 'flex', alignItems: 'center' }}>
-          <label className="row" style={{ gap: '0.35rem' }}>
-            <input type="checkbox" checked={filters.bechdelOnly} onChange={(e) => setFilters({ ...filters, bechdelOnly: e.target.checked })} />
-            Bechdel passes
-          </label>
+        <div className="field toolbar-check">
+          <button
+            type="button"
+            className={`want-pill${filters.bechdelOnly ? ' active' : ''}`}
+            aria-pressed={filters.bechdelOnly}
+            onClick={() => setFilters({ ...filters, bechdelOnly: !filters.bechdelOnly })}
+          >
+            <span aria-hidden="true">{filters.bechdelOnly ? '☑' : '☐'}</span>
+            {' '}Bechdel passes
+          </button>
         </div>
-        <div className="field" style={{ display: 'flex', alignItems: 'center' }}>
-          <label className="row" style={{ gap: '0.35rem' }}>
-            <input type="checkbox" checked={filters.onlyUnseen} onChange={(e) => setFilters({ ...filters, onlyUnseen: e.target.checked })} />
-            No attendee has seen
-          </label>
+        <div className="field toolbar-check">
+          <button
+            type="button"
+            className={`want-pill${filters.onlyUnseen ? ' active' : ''}`}
+            aria-pressed={filters.onlyUnseen}
+            onClick={() => setFilters({ ...filters, onlyUnseen: !filters.onlyUnseen })}
+          >
+            <span aria-hidden="true">{filters.onlyUnseen ? '☑' : '☐'}</span>
+            {' '}No attendee has seen
+          </button>
         </div>
-        <div className="field" style={{ display: 'flex', alignItems: 'center' }}>
-          <label className="row" style={{ gap: '0.35rem' }}>
-            <input type="checkbox" checked={filters.hideHated} onChange={(e) => setFilters({ ...filters, hideHated: e.target.checked })} />
-            Hide if anyone really hates
-          </label>
+        <div className="field toolbar-check">
+          <button
+            type="button"
+            className={`want-pill${filters.hideHated ? ' active' : ''}`}
+            aria-pressed={filters.hideHated}
+            onClick={() => setFilters({ ...filters, hideHated: !filters.hideHated })}
+          >
+            <span aria-hidden="true">{filters.hideHated ? '☑' : '☐'}</span>
+            {' '}Hide if anyone really hates
+          </button>
         </div>
       </div>
 
@@ -200,37 +215,45 @@ export default function MaybeMovie() {
         {sorted.length === 0 && <div className="card">No movies match these filters.</div>}
         {sorted.map((m) => (
           <div className="movie-row" key={m.id}>
-            <div className="poster" style={m.poster_url ? { backgroundImage: `url(${m.poster_url})` } : {}} />
-            <div className="info">
-              <h3>{m.title} {m.year && <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({m.year})</span>}</h3>
-              <div className="stats">
-                {m.duration_minutes ? `${m.duration_minutes}m` : '—'}
-                {m.imdb_rating ? ` · ⭐ ${m.imdb_rating}` : ''}
-                {m.bechdel_passes ? ' · Bechdel ✓' : m.bechdel_passes === 0 ? ' · Bechdel ✗' : ''}
-                {m.genres?.length ? ` · ${m.genres.join(', ')}` : ''}
-              </div>
-              <div className="stats">
-                {m._seenCount}/{attendeeIds.size} seen ·
-                {' '}{m._haventSeen} haven't seen
-                {m._noResponse > 0 ? ` · ${m._noResponse} no response` : ''} ·
-                {' '}{m._recPct === null ? 'no ratings yet' : `${Math.round(m._recPct * 100)}% rec`} ·
-                {' '}{Math.round(m._wantPct * 100)}% want to see
-              </div>
+            <div className="vote">
+              <button
+                className={`up ${m._myVote === 'up' ? 'active' : ''}`}
+                title="Thumbs up"
+                onClick={() => vote(active.id, m.id, m._myVote === 'up' ? null : 'up')}
+              >▲</button>
+              <span className="net">{m._netVotes >= 0 ? `+${m._netVotes}` : m._netVotes}</span>
+              <button
+                className={`down ${m._myVote === 'down' ? 'active' : ''}`}
+                title="Thumbs down"
+                onClick={() => vote(active.id, m.id, m._myVote === 'down' ? null : 'down')}
+              >▼</button>
             </div>
-            <div className="right">
-              <div className="vote">
-                <button
-                  className={`up ${m._myVote === 'up' ? 'active' : ''}`}
-                  title="Thumbs up"
-                  onClick={() => vote(active.id, m.id, m._myVote === 'up' ? null : 'up')}
-                >▲</button>
-                <span className="net">{m._netVotes >= 0 ? `+${m._netVotes}` : m._netVotes}</span>
-                <button
-                  className={`down ${m._myVote === 'down' ? 'active' : ''}`}
-                  title="Thumbs down"
-                  onClick={() => vote(active.id, m.id, m._myVote === 'down' ? null : 'down')}
-                >▼</button>
+            <Link
+              to={`/movies/${m.id}`}
+              className="poster"
+              aria-label={`Open ${m.title} details`}
+              style={m.poster_url ? { backgroundImage: `url(${m.poster_url})` } : {}}
+            />
+            <Link to={`/movies/${m.id}`} className="info-link">
+              <div className="info">
+                <h3>{m.title} {m.year && <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({m.year})</span>}</h3>
+                <div className="stats">
+                  {m.duration_minutes ? `${m.duration_minutes}m` : '—'}
+                  {m.imdb_rating ? ` · ⭐ ${m.imdb_rating}` : ''}
+                  {m.bechdel_passes ? ' · Bechdel ✓' : m.bechdel_passes === 0 ? ' · Bechdel ✗' : ''}
+                  {m.genres?.length ? ` · ${m.genres.join(', ')}` : ''}
+                </div>
+                <div className="stats">
+                  {m._seenCount}/{attendeeIds.size} seen ·
+                  {' '}{m._haventSeen} haven't seen
+                  <span className="stats-break"> · </span>
+                  {m._noResponse > 0 ? `${m._noResponse} no response · ` : ''}
+                  {m._recPct === null ? 'no ratings yet' : `${Math.round(m._recPct * 100)}% rec`} ·
+                  {' '}{Math.round(m._wantPct * 100)}% want to see
+                </div>
               </div>
+            </Link>
+            <div className="right">
               <button
                 className="primary"
                 onClick={async () => {

@@ -4,11 +4,30 @@
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
-  email VARCHAR(255) NOT NULL UNIQUE,
-  password_hash VARCHAR(255) NOT NULL,
+  email VARCHAR(255) UNIQUE,
+  phone VARCHAR(20) UNIQUE,
+  password_hash VARCHAR(255),
+  apple_user_id VARCHAR(255) UNIQUE,
+  google_user_id VARCHAR(255) UNIQUE,
   is_admin BOOLEAN NOT NULL DEFAULT FALSE,
   last_seen_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Pending one-time codes for SMS / email sign-in. Codes are stored hashed so
+-- a database leak doesn't expose live login codes. Pruned on verify and on
+-- a 10-minute interval from server.js.
+CREATE TABLE IF NOT EXISTS auth_codes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  kind ENUM('sms','email') NOT NULL,
+  target VARCHAR(255) NOT NULL,        -- E.164 phone or lowercase email
+  code_hash VARCHAR(255) NOT NULL,
+  attempts INT NOT NULL DEFAULT 0,
+  used BOOLEAN NOT NULL DEFAULT FALSE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_kind_target (kind, target),
+  INDEX idx_expires (expires_at)
 );
 
 CREATE TABLE IF NOT EXISTS movies (
@@ -39,12 +58,16 @@ CREATE TABLE IF NOT EXISTS movie_genres (
   FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE
 );
 
--- A user's relationship to a movie. status is required, rating only when seen.
+-- A user's relationship to a movie. status records whether they've watched
+-- it (seen / not_interested — both are explicit responses); want_to_see is
+-- an independent flag so a user who has seen a film can still mark "want to
+-- see again". rating is only meaningful when status='seen'.
 CREATE TABLE IF NOT EXISTS user_movies (
   user_id INT NOT NULL,
   movie_id INT NOT NULL,
   status ENUM('seen','want_to_see','not_interested') NOT NULL,
   rating ENUM('high_rec','rec','neutral','dont_like','really_dont_like') NULL,
+  want_to_see BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id, movie_id),

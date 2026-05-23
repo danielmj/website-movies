@@ -23,6 +23,7 @@ services:
       CORS_ORIGIN: ${MOVIES_CORS_ORIGIN:-https://maybemoviemondays.com}
       TMDB_API_KEY: ${TMDB_API_KEY}
       OMDB_API_KEY: ${OMDB_API_KEY}
+      GOOGLE_CLIENT_ID: ${MOVIES_GOOGLE_CLIENT_ID:-}
     ports:
       - "3007:4000"
     networks:
@@ -38,6 +39,10 @@ services:
       context: ./app
       args:
         NODE_ENV: ${NODE_ENV}
+        # Vite bakes VITE_* vars into the JS bundle at build time. The
+        # value is the same Client ID the API uses; we just rename it
+        # at the build-arg boundary so the frontend can read it.
+        VITE_GOOGLE_CLIENT_ID: ${MOVIES_GOOGLE_CLIENT_ID:-}
     environment:
       NODE_ENV: ${NODE_ENV}
     ports:

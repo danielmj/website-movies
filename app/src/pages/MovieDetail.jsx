@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import RatingPicker, { RATING_LABEL, STATUS_LABEL, STATUSES } from '../components/RatingPicker.jsx';
@@ -20,6 +20,7 @@ function statusLabel(status) {
 export default function MovieDetail() {
   const { id } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [movie, setMovie] = useState(null);
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -39,12 +40,29 @@ export default function MovieDetail() {
   const me = user && movie.user_movies
     ? movie.user_movies.find((u) => u.user_id === user.id)
     : null;
+  const wantsToSee = !!me?.want_to_see;
+  const seenState = me?.status === 'seen' ? 'seen' : me?.status ? 'not_seen' : null;
 
   async function setStatus(status, rating = null) {
     setBusy(true);
     try {
       if (status === 'seen' && !rating) rating = me?.rating || 'rec';
       await api.put(`/api/ratings/${movie.id}`, { status, rating });
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setSeenState(next) {
+    if (next === 'seen') await setStatus('seen', me?.rating || 'rec');
+    else await setStatus('not_interested');
+  }
+
+  async function toggleWantToSee() {
+    setBusy(true);
+    try {
+      await api.put(`/api/ratings/${movie.id}`, { want_to_see: !wantsToSee });
       await load();
     } finally {
       setBusy(false);
@@ -65,7 +83,25 @@ export default function MovieDetail() {
   return (
     <div className="container detail">
       <div style={{ marginBottom: '1rem' }}>
-        <Link to="/" style={{ color: 'var(--muted)' }}>← Back to movies</Link>
+        <button
+          type="button"
+          onClick={() => {
+            // Prefer history-back so deep-linked visits (no history) still
+            // land on /. Length > 1 means we have something to pop.
+            if (window.history.length > 1) navigate(-1);
+            else navigate('/');
+          }}
+          style={{
+            color: 'var(--muted)',
+            background: 'transparent',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+            font: 'inherit',
+          }}
+        >
+          ← Back
+        </button>
       </div>
 
       <div className="detail-head">
@@ -94,6 +130,20 @@ export default function MovieDetail() {
           {movie.overview && (
             <p style={{ color: 'var(--muted)', lineHeight: 1.5 }}>{movie.overview}</p>
           )}
+          <div className="external-links">
+            {movie.imdb_id && (
+              <a
+                href={`https://www.imdb.com/title/${movie.imdb_id}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >IMDb ↗</a>
+            )}
+            <a
+              href={`https://www.rottentomatoes.com/search?search=${encodeURIComponent(movie.title + (movie.year ? ' ' + movie.year : ''))}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >Rotten Tomatoes ↗</a>
+          </div>
         </div>
       </div>
 
@@ -101,17 +151,27 @@ export default function MovieDetail() {
         <>
           <section className="card" style={{ marginTop: '1rem' }}>
             <h2 style={{ marginTop: 0 }}>Your rating</h2>
-            <SegmentedControl
-              value={me?.status || null}
-              onChange={(s) => setStatus(s, s === 'seen' ? me?.rating || 'rec' : null)}
-              options={STATUSES}
-              disabled={busy}
-            />
-            {me?.status === 'seen' && (
-              <div style={{ marginTop: '0.5rem' }}>
+            <div className="rating-controls">
+              <SegmentedControl
+                value={seenState}
+                onChange={setSeenState}
+                options={[['seen', 'Seen it'], ['not_seen', "Haven't seen"]]}
+                disabled={busy}
+              />
+              {seenState === 'seen' && (
                 <RatingPicker value={me.rating} onChange={(r) => setStatus('seen', r)} disabled={busy} />
-              </div>
-            )}
+              )}
+              <button
+                type="button"
+                className={`want-pill${wantsToSee ? ' active' : ''}`}
+                onClick={toggleWantToSee}
+                disabled={busy}
+                aria-pressed={wantsToSee}
+              >
+                <span aria-hidden="true">{wantsToSee ? '☑' : '☐'}</span>
+                {' '}Want to see
+              </button>
+            </div>
           </section>
 
           <section className="card" style={{ marginTop: '1rem' }}>

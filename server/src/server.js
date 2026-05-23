@@ -17,12 +17,28 @@ app.use(
   }),
 );
 
+// SESSION_SECRET drives cookie HMAC. If it changes between restarts, every
+// existing cookie fails validation and users appear "signed out" even though
+// their session row in MySQL is intact. Refuse to start in production with a
+// missing/default secret so we never silently rotate it on restart.
+const sessionSecret = process.env.SESSION_SECRET || 'dev-secret-change-me';
+if (process.env.NODE_ENV === 'production' && sessionSecret === 'dev-secret-change-me') {
+  throw new Error('SESSION_SECRET is required in production (cookies would invalidate on every restart)');
+}
+
+// In production we keep users signed in for a year — Maybe Movie Mondays
+// is a low-friction app and people use it monthly at most. In dev we keep
+// it shorter so testing session expiry doesn't take a year.
+const SESSION_TTL_MS = process.env.NODE_ENV === 'production'
+  ? 365 * 24 * 60 * 60 * 1000
+  : 30 * 24 * 60 * 60 * 1000;
+
 const MySQLStore = MySQLStoreFactory(session);
 const sessionStore = new MySQLStore(
   {
     clearExpired: true,
     checkExpirationInterval: 15 * 60 * 1000,
-    expiration: 30 * 24 * 60 * 60 * 1000,
+    expiration: SESSION_TTL_MS,
     createDatabaseTable: true,
   },
   pool,
@@ -31,15 +47,21 @@ const sessionStore = new MySQLStore(
 app.use(
   session({
     name: 'mmm.sid',
-    secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
+    secret: sessionSecret,
+    // resave:false + rolling:true together: the row is only re-written when
+    // the session payload actually changes (cheap), but the cookie's
+    // max-age is refreshed on every response. So active users stay logged
+    // in indefinitely instead of getting kicked out the SESSION_TTL_MS
+    // mark regardless of activity.
     resave: false,
+    rolling: true,
     saveUninitialized: false,
     store: sessionStore,
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      maxAge: SESSION_TTL_MS,
     },
   }),
 );

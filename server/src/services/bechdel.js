@@ -12,7 +12,15 @@ async function lookup(imdbId) {
     usage.record('bechdel', r.status);
     if (!r.ok) return { rating: null, passes: null };
     const j = await r.json();
-    if (!j || j.status === 404 || j.rating === undefined) return { rating: null, passes: null };
+    // Bechdeltest returns `status` as a string ("404") when the movie isn't
+    // tested yet; loose equality covers both the string and number cases.
+    // It also occasionally returns the full row but with `rating` as a
+    // string — coerce before checking.
+    if (!j) return { rating: null, passes: null };
+    if (j.status != null && Number(j.status) === 404) return { rating: null, passes: null };
+    if (j.rating === undefined || j.rating === null || j.rating === '') {
+      return { rating: null, passes: null };
+    }
     const rating = Number(j.rating);
     return {
       rating: Number.isFinite(rating) ? rating : null,

@@ -31,6 +31,11 @@ export MYSQL_DATABASE=movies
 export SESSION_SECRET="${MOVIES_SESSION_SECRET:-dev-secret-change-me}"
 export CORS_ORIGIN="${CORS_ORIGIN:-http://localhost:5173}"
 
+# Sign in with Google client ID. Read from MOVIES_GOOGLE_CLIENT_ID in the
+# shared secrets bundle, exposed to the API code as GOOGLE_CLIENT_ID. Only
+# required if you actually want Google sign-in working locally.
+export GOOGLE_CLIENT_ID="${MOVIES_GOOGLE_CLIENT_ID:-${GOOGLE_CLIENT_ID:-}}"
+
 [ -n "$MYSQL_PASSWORD" ] || {
   echo "!!! APP_MYSQL_PASSWORD not set in $ENV_FILE — run ./platform secrets unpack" >&2
   exit 1

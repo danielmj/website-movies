@@ -3,14 +3,28 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import MovieCard from '../components/MovieCard.jsx';
+import RatingControls from '../components/RatingControls.jsx';
+
+const VIEW_KEY = 'mmm.movieListView';
 
 export default function MovieList() {
   const { user } = useAuth();
   const [movies, setMovies] = useState(null);
   const [err, setErr] = useState(null);
   const [q, setQ] = useState('');
+  // Default to list on phone-width, grid otherwise. localStorage overrides.
+  const [view, setView] = useState(() => {
+    if (typeof window === 'undefined') return 'grid';
+    const saved = window.localStorage.getItem(VIEW_KEY);
+    if (saved === 'grid' || saved === 'list') return saved;
+    return window.matchMedia('(max-width: 520px)').matches ? 'list' : 'grid';
+  });
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    try { window.localStorage.setItem(VIEW_KEY, view); } catch {}
+  }, [view]);
 
   async function load() {
     try {
@@ -33,9 +47,27 @@ export default function MovieList() {
 
   return (
     <div className="container">
-      <div className="spread" style={{ marginBottom: '1rem' }}>
+      <div className="spread" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h1 style={{ margin: 0 }}>Movies</h1>
-        <span style={{ color: 'var(--muted)' }}>{movies.length} in the list</span>
+        <div className="row" style={{ gap: '0.6rem', alignItems: 'center' }}>
+          <span style={{ color: 'var(--muted)' }}>{movies.length} in the list</span>
+          <div className="view-toggle" role="tablist" aria-label="View mode">
+            <button
+              type="button"
+              className={view === 'grid' ? 'active' : ''}
+              onClick={() => setView('grid')}
+              aria-pressed={view === 'grid'}
+              title="Grid view"
+            >▦</button>
+            <button
+              type="button"
+              className={view === 'list' ? 'active' : ''}
+              onClick={() => setView('list')}
+              aria-pressed={view === 'list'}
+              title="List view"
+            >☰</button>
+          </div>
+        </div>
       </div>
       {user ? (
         <form onSubmit={startAdd} className="row quick-add">
@@ -56,13 +88,52 @@ export default function MovieList() {
       )}
       {movies.length === 0 ? (
         <div className="card">No movies yet.{user ? ' Use the search above to add one.' : ''}</div>
-      ) : (
+      ) : view === 'grid' ? (
         <div className="movie-grid">
           {movies.map((m) => (
             <MovieCard key={m.id} movie={m} onChange={load} />
           ))}
         </div>
+      ) : (
+        <div className="movie-list">
+          {movies.map((m) => <MovieListItem key={m.id} movie={m} onChange={load} />)}
+        </div>
       )}
+    </div>
+  );
+}
+
+// Compact horizontal layout. Poster + title link to the detail page; rating
+// controls are inline so common operations (mark seen, rate, want-to-see)
+// don't need a navigation hop. Controls stop click-propagation so tapping
+// them doesn't trigger the surrounding link.
+function MovieListItem({ movie, onChange }) {
+  const { user } = useAuth();
+  const me = user ? movie.user_movies.find((u) => u.user_id === user.id) : null;
+  const needsResponse = user && !me;
+  return (
+    <div className={`movie-list-item${needsResponse ? ' needs-response' : ''}`}>
+      <Link
+        to={`/movies/${movie.id}`}
+        className="poster"
+        aria-label={`Open ${movie.title} details`}
+        style={movie.poster_url ? { backgroundImage: `url(${movie.poster_url})` } : {}}
+      />
+      <div className="info">
+        <Link to={`/movies/${movie.id}`} className="info-link">
+          <div className="title">
+            {movie.title}
+            {movie.year && <span className="muted"> ({movie.year})</span>}
+          </div>
+          <div className="muted">
+            {movie.duration_minutes ? `${movie.duration_minutes}m` : '—'}
+            {movie.imdb_rating ? ` · ⭐ ${movie.imdb_rating}` : ''}
+            {movie.bechdel_passes ? ' · Bechdel ✓' : ''}
+            {movie.genres?.length ? ` · ${movie.genres.slice(0, 2).join(', ')}` : ''}
+          </div>
+        </Link>
+        {user && <RatingControls movie={movie} me={me} onChange={onChange} compact />}
+      </div>
     </div>
   );
 }

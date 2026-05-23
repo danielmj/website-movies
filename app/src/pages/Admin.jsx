@@ -196,7 +196,10 @@ function ApiUsageMeters() {
 }
 
 function ApiMeter({ stats }) {
-  const { service, today, last_hour, last_minute, errors_total, last_call_at, total, limits } = stats;
+  const {
+    service, today, last_hour, last_minute, errors_total, last_call_at, total, limits,
+    cost_today, cost_month_to_date, cost_month_projected, this_month,
+  } = stats;
   const dailyCap = limits?.daily ?? null;
   const dailyPct = dailyCap ? Math.min(100, Math.round((today / dailyCap) * 100)) : null;
   const dailyClass = dailyPct === null ? '' : dailyPct >= 90 ? 'danger' : dailyPct >= 70 ? 'warn' : '';
@@ -206,6 +209,8 @@ function ApiMeter({ stats }) {
   // even though the server-side rate limiter would catch a real spike first.
   const recentRate = last_minute / 60;
   const ratePct = perSecCap ? Math.min(100, Math.round((recentRate / perSecCap) * 100)) : null;
+
+  const hasCost = (limits?.cost_per_call || 0) > 0;
 
   return (
     <div className="api-meter">
@@ -245,8 +250,24 @@ function ApiMeter({ stats }) {
         </div>
       )}
 
+      {hasCost && (
+        <div className="meter-row" style={{ marginTop: '0.5rem' }}>
+          <span>Cost</span>
+          <span>
+            ${cost_today.toFixed(2)} today · ${cost_month_to_date.toFixed(2)} MTD
+            {' '}<span style={{ color: 'var(--muted)' }}>
+              (proj. ${cost_month_projected.toFixed(2)})
+            </span>
+          </span>
+        </div>
+      )}
+
       <div className="meter-row" style={{ color: 'var(--muted)', fontSize: '0.8rem', marginTop: '0.4rem' }}>
-        <span>Last hour: {last_hour.toLocaleString()} · 90-day total: {total.toLocaleString()}</span>
+        <span>
+          Last hour: {last_hour.toLocaleString()}
+          {hasCost ? ` · ${this_month.toLocaleString()} this month` : ''}
+          {' · 90-day total: '}{total.toLocaleString()}
+        </span>
         <span>{errors_total > 0 ? `${errors_total} errors` : ''}</span>
       </div>
     </div>

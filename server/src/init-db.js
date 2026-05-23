@@ -11,6 +11,28 @@ const MIGRATIONS = [
   `ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE`,
   `ALTER TABLE users ADD COLUMN last_seen_at TIMESTAMP NULL`,
   `ALTER TABLE movies ADD COLUMN notes TEXT NULL`,
+  `ALTER TABLE user_movies ADD COLUMN want_to_see BOOLEAN NOT NULL DEFAULT FALSE`,
+  // Backfill: any existing rows with status='want_to_see' become
+  // status='not_interested' + want_to_see=TRUE so the new column captures the
+  // intent. After this migration the 'want_to_see' enum value is unused but
+  // kept for forward-compat with any old client traffic.
+  `UPDATE user_movies SET want_to_see = TRUE WHERE status = 'want_to_see'`,
+  `UPDATE user_movies SET status = 'not_interested' WHERE status = 'want_to_see'`,
+  // Phone-based sign-in: phone is unique-nullable, password and email
+  // become nullable so OTP-only users can exist without either.
+  `ALTER TABLE users ADD COLUMN phone VARCHAR(20) NULL`,
+  `ALTER TABLE users ADD UNIQUE KEY uniq_phone (phone)`,
+  `ALTER TABLE users MODIFY password_hash VARCHAR(255) NULL`,
+  `ALTER TABLE users MODIFY email VARCHAR(255) NULL`,
+  // Sign in with Apple (no longer used — Google replaced it). Column kept
+  // so existing dev DBs still match the migration history.
+  `ALTER TABLE users ADD COLUMN apple_user_id VARCHAR(255) NULL`,
+  `ALTER TABLE users ADD UNIQUE KEY uniq_apple (apple_user_id)`,
+  // Sign in with Google: stable per-user identifier ("sub" claim from
+  // Google's id_token JWT). Indexed unique so we can match returning users
+  // in O(1).
+  `ALTER TABLE users ADD COLUMN google_user_id VARCHAR(255) NULL`,
+  `ALTER TABLE users ADD UNIQUE KEY uniq_google (google_user_id)`,
 ];
 
 (async () => {

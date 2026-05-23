@@ -80,12 +80,7 @@ export default function AddMovie() {
 
   return (
     <div className="container">
-      <div className="spread" style={{ marginBottom: '1rem' }}>
-        <h1 style={{ margin: 0 }}>Add a movie</h1>
-        {returnTo !== '/add' && (
-          <button type="button" onClick={() => navigate(returnTo)}>← Back</button>
-        )}
-      </div>
+      <h1 style={{ marginTop: 0, marginBottom: '1rem' }}>Add a movie</h1>
 
       {!preview && !previewLoading && (
         <>

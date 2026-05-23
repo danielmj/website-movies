@@ -9,6 +9,11 @@ env:
     - MOVIES_SESSION_SECRET
     - TMDB_API_KEY
     - OMDB_API_KEY
+  optional:
+    # Sign in with Google. If unset, /api/auth/google is disabled and the
+    # Google button on the Login page just isn't shown — email + password
+    # still works.
+    - MOVIES_GOOGLE_CLIENT_ID
 
 mysql:
   databases:
@@ -27,9 +32,11 @@ local:
     - name: api
       dir: server
       command: npm run dev
+    # Vite reads VITE_* vars at dev-server start; we translate the
+    # MOVIES-namespaced shared secret into VITE_GOOGLE_CLIENT_ID inline.
     - name: web
       dir: app
-      command: npm run dev
+      command: VITE_GOOGLE_CLIENT_ID="${MOVIES_GOOGLE_CLIENT_ID:-}" npm run dev
 
 deploy:
   setup:
