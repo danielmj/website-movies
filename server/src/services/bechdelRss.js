@@ -26,11 +26,46 @@ const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 async function lastRunAt() {
   try {
     const [rows] = await pool.query(
-      `SELECT MAX(called_at) AS last FROM api_usage WHERE service = 'bechdel_rss'`,
+      `SELECT MAX(fetched_at) AS last FROM bechdel_rss_log`,
     );
     return rows[0]?.last ? new Date(rows[0].last).getTime() : 0;
   } catch {
     return 0;
+  }
+}
+
+async function recentRuns(limit = 10) {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, fetched_at, status_code, items_seen, inserted, skipped, synced, error
+       FROM bechdel_rss_log
+       ORDER BY fetched_at DESC
+       LIMIT ?`,
+      [Number(limit)],
+    );
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+async function logRun(row) {
+  try {
+    await pool.query(
+      `INSERT INTO bechdel_rss_log
+        (status_code, items_seen, inserted, skipped, synced, error)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        row.status_code ?? null,
+        row.items_seen ?? null,
+        row.inserted ?? null,
+        row.skipped ?? null,
+        row.synced ?? null,
+        row.error ? String(row.error).slice(0, 500) : null,
+      ],
+    );
+  } catch (e) {
+    console.warn('[bechdel-rss] failed to write log row:', e.message);
   }
 }
 
@@ -47,11 +82,13 @@ async function pull() {
     body = await res.text();
   } catch (err) {
     await usage.record('bechdel_rss', 0);
+    await logRun({ status_code: 0, error: err.message });
     console.error('[bechdel-rss] fetch failed:', err.message);
     return { error: err.message };
   }
   await usage.record('bechdel_rss', res.status);
   if (!res.ok) {
+    await logRun({ status_code: res.status, error: `HTTP ${res.status}` });
     console.error('[bechdel-rss] HTTP', res.status);
     return { error: `HTTP ${res.status}` };
   }
@@ -68,7 +105,6 @@ async function pull() {
       );
       if (r.affectedRows) inserted++;
     } catch (e) {
-      // Don't let one bad row stop the rest.
       console.warn('[bechdel-rss] insert failed for', it.imdb_id, e.message);
     }
   }
@@ -76,6 +112,13 @@ async function pull() {
   // the cached column on the movies table picks up the fresh data.
   let synced = 0;
   try { synced = await require('./bechdel').syncMovies(); } catch {}
+  await logRun({
+    status_code: res.status,
+    items_seen: items.length,
+    inserted,
+    skipped,
+    synced,
+  });
   console.log(
     `[bechdel-rss] ${items.length} items in feed, ${inserted} new, ${skipped} skipped, ${synced} movies synced`,
   );
@@ -139,4 +182,4 @@ function clean(s) {
     .trim();
 }
 
-module.exports = { runIfStale, pull };
+module.exports = { runIfStale, pull, recentRuns };

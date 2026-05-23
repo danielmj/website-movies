@@ -321,6 +321,7 @@ function MovieDataTools() {
       </div>
       <ImportTitles />
       <ImportBechdel />
+      <BechdelRssLog />
     </section>
   );
 }
@@ -711,6 +712,86 @@ function SyncBechdelButton() {
       </button>
       {msg && <span style={{ alignSelf: 'center', color: 'var(--muted)', fontSize: '0.85rem' }}>{msg}</span>}
     </>
+  );
+}
+
+// Surface the most recent runs of the weekly bechdeltest.com RSS pull so
+// admins can see whether new entries are landing. "Run now" bypasses the
+// 7-day throttle, useful right after deploys to verify parsing.
+function BechdelRssLog() {
+  const [rows, setRows] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  async function load() {
+    setErr(null);
+    try { setRows(await api.get('/api/admin/bechdel-rss/log')); }
+    catch (e) { setErr(e.message); }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function runNow() {
+    setBusy(true); setErr(null);
+    try {
+      await api.post('/api/admin/bechdel-rss/run', {});
+      await load();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card" style={{ marginTop: '1rem' }}>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <h3 style={{ margin: 0 }}>Bechdel RSS pulls</h3>
+        <button onClick={runNow} disabled={busy}>
+          {busy ? 'Fetching…' : 'Run now'}
+        </button>
+      </div>
+      <p style={{ color: 'var(--muted)', marginTop: '0.5rem' }}>
+        The server pulls bechdeltest.com's RSS feed once a week and adds any
+        new entries. Most recent attempts:
+      </p>
+      {err && <div className="error">{err}</div>}
+      {!rows ? (
+        <div style={{ color: 'var(--muted)' }}>Loading…</div>
+      ) : rows.length === 0 ? (
+        <div style={{ color: 'var(--muted)' }}>No pulls have run yet.</div>
+      ) : (
+        <div className="table-scroll">
+          <table className="user-status-table">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>HTTP</th>
+                <th>Items in feed</th>
+                <th>New</th>
+                <th>Skipped</th>
+                <th>Movies synced</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.fetched_at ? new Date(r.fetched_at).toLocaleString() : '—'}</td>
+                  <td>{r.status_code ?? '—'}</td>
+                  <td>{r.items_seen ?? '—'}</td>
+                  <td>{r.inserted ?? '—'}</td>
+                  <td>{r.skipped ?? '—'}</td>
+                  <td>{r.synced ?? '—'}</td>
+                  <td style={{ color: r.error ? 'var(--bad)' : 'var(--muted)' }}>
+                    {r.error || (r.inserted === 0 ? 'no new entries' : '')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 

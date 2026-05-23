@@ -645,8 +645,7 @@ function AdminMovieEditor({ movie, reload }) {
   }
 
   return (
-    <section className="card admin-edit" style={{ marginTop: '1rem' }}>
-      <h2 style={{ marginTop: 0 }}>Admin · edit metadata</h2>
+    <section style={{ marginTop: '0.25rem' }}>
 
       <div className="field">
         <label>Notes (free text — e.g. "Added by Blair")</label>

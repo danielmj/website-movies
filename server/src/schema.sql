@@ -140,6 +140,22 @@ CREATE TABLE IF NOT EXISTS movie_comments (
   INDEX idx_user  (user_id)
 );
 
+-- One row per attempt to fetch the bechdeltest.com RSS feed. Surfaces
+-- "what did the last weekly pull do" in the admin panel: HTTP status,
+-- how many items were in the feed, how many were new, how many were
+-- skipped (missing imdb_id, etc.), and how many movies got synced after.
+CREATE TABLE IF NOT EXISTS bechdel_rss_log (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  status_code SMALLINT NULL,
+  items_seen INT NULL,
+  inserted INT NULL,
+  skipped INT NULL,
+  synced INT NULL,
+  error VARCHAR(500) NULL,
+  INDEX idx_fetched_at (fetched_at)
+);
+
 -- Cached Bechdel test results. Seeded from server/data/bechdel-movies.json
 -- on server boot (the bechdeltest.com API was retired). Keyed by IMDb id
 -- for direct lookup; secondary index on (year, passes) so the "browse"

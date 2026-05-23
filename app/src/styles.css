@@ -1419,6 +1419,42 @@ a.pill:hover, a.pill-link:hover {
 .movie-row .info-link { display: contents; color: var(--text); text-decoration: none; }
 .movie-row .info-link:hover h3 { color: var(--accent); }
 
+/* Mobile: pin the Watched button to the top-right of the row, shrink it,
+ * and let the title/meta wrap around it. The info column drops to a block
+ * layout so a floated pseudo-element can reserve a shape for the button
+ * to overlay — text flows up to the float, then continues underneath
+ * once it falls below the button's height. */
+@media (max-width: 560px) {
+  .movie-row {
+    position: relative;
+    grid-template-columns: auto 60px 1fr;
+  }
+  .movie-row .right {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 1;
+  }
+  .movie-row .right .primary {
+    padding: 0.3rem 0.7rem;
+    font-size: 0.8rem;
+  }
+  .movie-row .info {
+    display: block;
+  }
+  .movie-row .info > * + * {
+    margin-top: 0.25rem;
+  }
+  .movie-row .info::before {
+    content: '';
+    display: block;
+    float: right;
+    width: 5rem;
+    height: 2.4rem;
+    margin: 0 0 0.25rem 0.5rem;
+  }
+}
+
 .banner-impersonate {
   background: var(--accent-2);
   color: white;

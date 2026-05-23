@@ -487,7 +487,7 @@ function PerhapsNotPopup({ onClose, onSubmit }) {
 
         <div className="exit-question">
           <div className="exit-question-label">
-            How would you describe your general mood over the past two weeks?{' '}
+            How would you describe your general mood over the past two hours?{' '}
             <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(select multiple)</span>
           </div>
           <div className="exit-mood">
@@ -504,7 +504,7 @@ function PerhapsNotPopup({ onClose, onSubmit }) {
         </div>
 
         <YesNoQuestion
-          label="Have you been experiencing racing thoughts, or thoughts that you can't seem to turn off?"
+          label="Have you been having trouble concentrating on tasks you used to find easy?"
           value={racing}
           onChange={setRacing}
         />

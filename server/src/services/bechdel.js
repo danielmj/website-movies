@@ -59,9 +59,11 @@ async function listForBrowse() {
   return rows.map((r) => ({ ...r, passes: !!r.passes }));
 }
 
-// Seed `bechdel_movies` from the bundled JSON file. Re-seeds whenever the
-// row count in the DB doesn't match the file (so dropping in a refreshed
-// dataset just requires a server restart). Skips when the file is missing.
+// Seed `bechdel_movies` from the bundled JSON file. Idempotent and
+// additive: we INSERT IGNORE every JSON row, so existing entries are
+// untouched (they already match by imdb_id PK) and new entries from
+// updated JSON files get picked up. Crucially, this never deletes —
+// admin-imported and RSS-added rows survive across restarts.
 async function seedFromJson() {
   try {
     const file = path.join(__dirname, '..', '..', 'data', 'bechdel-movies.json');
@@ -72,15 +74,12 @@ async function seedFromJson() {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (!Array.isArray(data) || !data.length) return;
 
+    // Skip the seed entirely if the table already has at least the
+    // bundled file's worth of rows — saves the cost of a 9k-row INSERT
+    // IGNORE on every boot once we're past the first run.
     const [count] = await pool.query('SELECT COUNT(*) AS c FROM bechdel_movies');
-    if (count[0].c === data.length) return;  // nothing changed; skip the rewrite
+    if (count[0].c >= data.length) return;
 
-    if (count[0].c > 0) {
-      console.log(`[bechdel] dataset changed (${count[0].c} rows in DB vs ${data.length} in file) — re-seeding`);
-      await pool.query('TRUNCATE TABLE bechdel_movies');
-    }
-
-    // Bulk insert in chunks of 500 to keep packet size sane.
     const chunkSize = 500;
     for (let i = 0; i < data.length; i += chunkSize) {
       const chunk = data.slice(i, i + chunkSize);
@@ -90,7 +89,7 @@ async function seedFromJson() {
         [values],
       );
     }
-    console.log(`[bechdel] seeded ${data.length} movies into bechdel_movies`);
+    console.log(`[bechdel] ensured bundled dataset (${data.length} rows) is in bechdel_movies`);
   } catch (err) {
     console.error('[bechdel] seed failed:', err.message);
   }

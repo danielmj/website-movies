@@ -6,6 +6,7 @@ const { requireAuth, requireAdmin } = require('../auth');
 const tmdb = require('../services/tmdb');
 const omdb = require('../services/omdb');
 const bechdel = require('../services/bechdel');
+const bechdelRss = require('../services/bechdelRss');
 const usage = require('../services/usage');
 
 const router = express.Router();
@@ -548,6 +549,27 @@ router.post('/bechdel/sync-movies', requireAdmin, async (req, res, next) => {
   try {
     const synced = await bechdel.syncMovies();
     res.json({ ok: true, movies_synced: synced });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Recent results from the weekly bechdeltest.com RSS pull. Returns the
+// 10 most recent attempts with HTTP status, item counts, and what got
+// inserted vs. skipped.
+router.get('/bechdel-rss/log', requireAdmin, async (req, res, next) => {
+  try {
+    res.json(await bechdelRss.recentRuns(10));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Manually trigger a feed pull right now (bypasses the once-a-week
+// throttle). Useful for verifying the RSS parsing after a code change.
+router.post('/bechdel-rss/run', requireAdmin, async (req, res, next) => {
+  try {
+    res.json(await bechdelRss.pull());
   } catch (err) {
     next(err);
   }
