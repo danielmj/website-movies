@@ -37,7 +37,12 @@ export default function UserProfile() {
       subjectUser={subject}
       movies={movies}
       viewer={viewer}
-      actions={<Link to="/profile" className="header-pill">Your profile →</Link>}
+      actions={(
+        <div className="row">
+          <Link to="/users" className="header-pill">Users</Link>
+          <Link to="/profile" className="header-pill">Your profile →</Link>
+        </div>
+      )}
     />
   );
 }

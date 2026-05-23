@@ -10,7 +10,8 @@ import RatingPicker, {
   INTEREST_OPTIONS,
 } from '../components/RatingPicker.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
-import { pickPairing, typeLabel, typeEmoji } from '../pairing.js';
+import { pickPairing, typeLabel, typeEmoji, DESCRIPTOR_GLOSS } from '../pairing.js';
+import { ExplainPopup } from './Profile.jsx';
 
 function fmtDate(s) {
   if (!s) return '';
@@ -18,6 +19,14 @@ function fmtDate(s) {
   return Number.isNaN(d.getTime())
     ? s
     : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// Oxford-comma list join for free-form copy: "a", "a and b", "a, b, and c".
+function joinList(items) {
+  if (!items.length) return '';
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
 }
 
 function statusLabel(status) {
@@ -33,6 +42,7 @@ export default function MovieDetail() {
   const [movie, setMovie] = useState(null);
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
 
   async function load() {
     try {
@@ -96,7 +106,7 @@ export default function MovieDetail() {
 
   return (
     <div className="container detail">
-      <div style={{ marginBottom: '1rem' }}>
+      <div className="spread" style={{ marginBottom: '1rem' }}>
         <button
           type="button"
           onClick={() => {
@@ -116,6 +126,11 @@ export default function MovieDetail() {
         >
           ← Back
         </button>
+        {user?.is_admin && (
+          <button type="button" onClick={() => setShowAdminModal(true)}>
+            Edit
+          </button>
+        )}
       </div>
 
       <div className="detail-head">
@@ -141,8 +156,11 @@ export default function MovieDetail() {
           {movie.notes && (
             <div className="notes-block"><strong>Notes:</strong> {movie.notes}</div>
           )}
-          {movie.added_by_name && (
-            <div className="meta" style={{ marginTop: '0.4rem' }}>added by {movie.added_by_name}</div>
+          {(movie.added_by_name || movie.created_at) && (
+            <div className="meta" style={{ marginTop: '0.4rem' }}>
+              {movie.added_by_name ? `added by ${movie.added_by_name}` : 'added'}
+              {movie.created_at ? ` on ${fmtDate(movie.created_at)}` : ''}
+            </div>
           )}
           {movie.overview && (
             <p style={{ color: 'var(--muted)', lineHeight: 1.5 }}>{movie.overview}</p>
@@ -235,7 +253,17 @@ export default function MovieDetail() {
             <WatchHistory movie={movie} />
           </section>
 
-          {user.is_admin && <AdminMovieEditor movie={movie} reload={load} />}
+          {user.is_admin && showAdminModal && (
+            <div className="modal-backdrop" onClick={() => setShowAdminModal(false)}>
+              <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 600 }}>
+                <div className="spread" style={{ marginBottom: '0.5rem' }}>
+                  <h2 style={{ margin: 0 }}>Edit movie</h2>
+                  <button onClick={() => setShowAdminModal(false)}>Close</button>
+                </div>
+                <AdminMovieEditor movie={movie} reload={load} />
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <section className="card" style={{ marginTop: '1rem' }}>
@@ -245,22 +273,143 @@ export default function MovieDetail() {
         </section>
       )}
 
-      <Comments movie={movie} reload={load} />
+      {user && <Comments movie={movie} reload={load} />}
     </div>
   );
 }
 
 function PairingCard({ movie }) {
   const p = pickPairing(movie);
+  const [open, setOpen] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const reason = (() => {
+    if (p.source === 'decade') {
+      return `${p.name} fits because the movie is from the ${movie.decade}s — that decade has a strong period vibe and ${p.name} is the era pour.`;
+    }
+    if (p.source === 'algorithm') {
+      const matches = p.matches || [];
+      const allGenres = movie.genres || [];
+      if (!matches.length) return `${p.name} — no notes lined up cleanly with this one.`;
+      return (
+        <>
+          <div style={{ marginBottom: '0.4rem' }}>
+            All {allGenres.length} {allGenres.length === 1 ? 'genre' : 'genres'} on this movie ({joinList(allGenres)}) were folded into the vibe profile.
+          </div>
+          <div style={{ marginBottom: '0.6rem' }}>
+            <strong style={{ color: 'var(--text)' }}>{p.name}</strong> reads as {joinList(matches)}. Here's how each note matches the movie:
+          </div>
+          <ul className="pairing-detail-list">
+            {matches.map((tag) => {
+              const gloss = DESCRIPTOR_GLOSS[tag];
+              const genres = (p.tagToGenres && p.tagToGenres[tag]) || [];
+              return (
+                <li key={tag}>
+                  <strong style={{ color: 'var(--text)' }}>{tag}</strong>
+                  {gloss && <> — {gloss}</>}
+                  {genres.length > 0 && <>. Carried by {joinList(genres)}.</>}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      );
+    }
+    return 'No genre data on this movie, so we couldn\'t surface a reasoned pour. Add genres to the metadata and a real pairing will appear.';
+  })();
+
+  // Full algorithm explainer, hidden behind the "Learn more" toggle so the
+  // primary popup stays scannable. Steps mirror what `pickPairing` actually
+  // does, top to bottom.
+  const algorithmDetails = (
+    <div className="pairing-algo-detail">
+      <h4 style={{ margin: '0 0 0.4rem 0' }}>The full algorithm</h4>
+      <ol className="pairing-algo-list">
+        <li>
+          <strong>Decade override.</strong> A handful of distinctive eras
+          (1920s, 50s, 70s, 80s) get hand-picked pours and short-circuit
+          everything below. Most movies don't trigger this.
+        </li>
+        <li>
+          <strong>Build a vibe profile.</strong> Each genre carries a small
+          set of descriptors (e.g. Action → <em>intense, bold, punchy, strong, fast, fiery</em>).
+          We loop over every genre on the movie and tally a frequency map.
+          A descriptor mentioned by multiple genres weighs more — that's how
+          cross-genre overlap gets rewarded.
+        </li>
+        <li>
+          <strong>Score every drink.</strong> Every drink in the library is
+          also tagged with descriptors. Its score is the sum of frequency
+          weights for descriptors it shares with the movie's profile.
+          Zero-overlap drinks drop out entirely.
+        </li>
+        <li>
+          <strong>Sort.</strong> Highest total score first; then prefer
+          tighter-fit drinks (a higher fraction of their tags actually
+          landed); then alphabetical as a deterministic baseline.
+        </li>
+        <li>
+          <strong>Per-movie tiebreak.</strong> When multiple drinks tie at
+          the top score, we pick deterministically using the movie's id:{' '}
+          <code>topGroup[movieId % topGroup.length]</code>. Same movie always
+          lands on the same drink across reloads, but two different movies
+          with identical genres can land on different drinks. That's why
+          Gladiator and Gladiator II don't pour the same thing.
+        </li>
+        <li>
+          <strong>Surface.</strong> The matched descriptors and which of the
+          movie's genres carry each one are what's listed above.
+        </li>
+      </ol>
+      <p style={{ marginTop: '0.6rem', marginBottom: 0 }}>
+        Tuning points: descriptors per genre and per drink live in{' '}
+        <code>app/src/pairing.js</code>; the tiebreak rule is the last
+        block of <code>pickPairing</code>.
+      </p>
+    </div>
+  );
+
+  const body = (
+    <>
+      {reason}
+      {showDetails && algorithmDetails}
+      {p.source !== 'fallback' && (
+        <button
+          type="button"
+          className="pairing-learn-more"
+          onClick={() => setShowDetails((v) => !v)}
+        >
+          {showDetails ? 'Hide details' : 'Learn more →'}
+        </button>
+      )}
+    </>
+  );
+
   return (
-    <section className="card pairing-card" style={{ marginTop: '1rem' }}>
-      <div className="pairing-emoji" aria-hidden="true">{typeEmoji(p.type)}</div>
-      <div className="pairing-text">
-        <div className="pairing-eyebrow">Tonight's pairing — {typeLabel(p.type)}</div>
-        <div className="pairing-name">{p.name}</div>
-        <div className="pairing-why">{p.why}</div>
-      </div>
-    </section>
+    <>
+      <section
+        className="card pairing-card clickable"
+        style={{ marginTop: '1rem' }}
+        role="button"
+        tabIndex={0}
+        onClick={() => { setOpen(true); setShowDetails(false); }}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); setShowDetails(false); } }}
+      >
+        <div className="pairing-emoji" aria-hidden="true">{typeEmoji(p.type)}</div>
+        <div className="pairing-text">
+          <div className="pairing-eyebrow">Tonight's pairing — {typeLabel(p.type)}</div>
+          <div className="pairing-name">{p.name}</div>
+          <div className="pairing-why">{p.why}</div>
+        </div>
+        <span className="stat-info" aria-hidden="true">ⓘ</span>
+      </section>
+      {open && (
+        <ExplainPopup
+          title="How this pairing is chosen"
+          body={body}
+          onClose={() => { setOpen(false); setShowDetails(false); }}
+        />
+      )}
+    </>
   );
 }
 

@@ -118,12 +118,15 @@ export default function Profile() {
       movies={movies}
       viewer={user}
       actions={(
-        <button
-          className="danger"
-          onClick={async () => { await logout(); navigate('/'); }}
-        >
-          Sign out
-        </button>
+        <div className="row">
+          <Link to="/users" className="header-pill">Users</Link>
+          <button
+            className="danger"
+            onClick={async () => { await logout(); navigate('/'); }}
+          >
+            Sign out
+          </button>
+        </div>
       )}
       editor={<ProfileEditor />}
     />
@@ -216,7 +219,19 @@ function ProfileEditor() {
 // genres, runtime watched, and a couple of fun derived metrics. Hidden
 // when the user hasn't rated anything yet — a stats panel of zeros isn't
 // interesting.
+//
+// Also pulls /api/maybe/history so we can show two Maybe-Movie-specific
+// stats: how many group nights this user actually watched, and the average
+// group rating on movies they personally recommended.
+const RATING_VALUE = { high_rec: 5, rec: 4, neutral: 3, dont_like: 2, really_dont_like: 1 };
+
 function ProfileStats({ subjectUser, movies }) {
+  const [history, setHistory] = useState(null);
+  const [explain, setExplain] = useState(null);
+  useEffect(() => {
+    api.get('/api/maybe/history').then(setHistory).catch(() => setHistory([]));
+  }, []);
+
   const rated = movies
     .map((m) => ({ m, me: m.user_movies.find((u) => u.user_id === subjectUser.id) }))
     .filter(({ me }) => me && me.status === 'seen' && me.rating);
@@ -258,25 +273,78 @@ function ProfileStats({ subjectUser, movies }) {
     return d > (Number(best?.m.duration_minutes) || 0) ? cur : best;
   }, null);
 
+  // Maybe Movie nights this user actually attended where a movie got
+  // watched (cancelled sessions don't count).
+  const attendedSessions = (history || []).filter(
+    (s) => s.watched_movie_id && s.attendees.some((a) => a.user_id === subjectUser.id),
+  );
+  const movieNights = attendedSessions.length;
+  const movieNightMinutes = attendedSessions.reduce((acc, s) => {
+    const movie = movies.find((m) => m.id === s.watched_movie_id);
+    return acc + (Number(movie?.duration_minutes) || 0);
+  }, 0);
+
+  // Group rating on movies this user recommended (their rec/high_rec) that
+  // the group actually watched together. Average the attendees' numeric
+  // ratings of each such movie, then average across movies. Null when
+  // there are no qualifying picks yet.
+  const groupRatingOnPicks = (() => {
+    const perMovieAvgs = [];
+    for (const session of attendedSessions) {
+      const movie = movies.find((m) => m.id === session.watched_movie_id);
+      if (!movie) continue;
+      const subjectRow = movie.user_movies.find((u) => u.user_id === subjectUser.id);
+      if (!subjectRow || !(subjectRow.rating === 'rec' || subjectRow.rating === 'high_rec')) continue;
+      const attendeeIds = new Set(session.attendees.map((a) => a.user_id));
+      const numericRatings = movie.user_movies
+        .filter((u) => attendeeIds.has(u.user_id) && u.rating)
+        .map((u) => RATING_VALUE[u.rating])
+        .filter((v) => v != null);
+      if (!numericRatings.length) continue;
+      perMovieAvgs.push(numericRatings.reduce((a, b) => a + b, 0) / numericRatings.length);
+    }
+    if (!perMovieAvgs.length) return null;
+    return {
+      avg: (perMovieAvgs.reduce((a, b) => a + b, 0) / perMovieAvgs.length).toFixed(1),
+      count: perMovieAvgs.length,
+    };
+  })();
+
   return (
     <section className="card" style={{ marginTop: '1rem' }}>
       <h2 style={{ marginTop: 0 }}>Stats</h2>
+      <p style={{ color: 'var(--muted)', fontSize: '0.85rem', margin: '0 0 0.75rem 0' }}>
+        Tap any tile to see how it's calculated.
+      </p>
       <div className="profile-stats">
-        <div className="stat-bechdel">
+        <ClickableStat
+          className="stat-bechdel"
+          onClick={() => setExplain({
+            title: 'Bechdel split',
+            body: `Across the ${rated.length} movies you've rated, ${passes} pass the Bechdel test, ${fails} fail, and ${unknown} are untested. The donut shows the pass percentage. A movie is counted as "rated" only when status='Seen' with a rating attached.`,
+          })}
+        >
           <BechdelDonut passes={passes} fails={fails} unknown={unknown} />
           <div className="stat-bechdel-legend">
             <div><span className="dot good" /> Passes <strong>{passes}</strong></div>
             <div><span className="dot bad" /> Fails <strong>{fails}</strong></div>
             <div><span className="dot mute" /> Unknown <strong>{unknown}</strong></div>
           </div>
-        </div>
+        </ClickableStat>
 
         <div className="stat-grid">
-          <div className="stat-tile">
+          <ClickableStat onClick={() => setExplain({
+            title: 'Movies rated',
+            body: 'Number of movies you\'ve marked as Seen with a rating (Love / Like / Meh / Eh / Hate). Movies you\'ve set an interest on but haven\'t watched aren\'t counted.',
+          })}>
             <div className="stat-label">Movies rated</div>
             <div className="stat-value">{rated.length}</div>
-          </div>
-          <div className="stat-tile">
+          </ClickableStat>
+
+          <ClickableStat onClick={() => setExplain({
+            title: 'Top genres',
+            body: 'Genres that appear most often across your rated movies. A movie can have multiple genres and contributes to each. The number is how many of your rated movies fall under that genre.',
+          })}>
             <div className="stat-label">Top genres</div>
             <div className="stat-value-list">
               {topGenres.length === 0 ? (
@@ -288,45 +356,141 @@ function ProfileStats({ subjectUser, movies }) {
                 </div>
               ))}
             </div>
-          </div>
-          <div className="stat-tile">
+          </ClickableStat>
+
+          <ClickableStat onClick={() => setExplain({
+            title: 'Hours watched',
+            body: `Sum of duration_minutes across all ${rated.length} movies you've rated, converted to hours. Movies missing a runtime contribute zero.`,
+          })}>
             <div className="stat-label">Hours watched</div>
             <div className="stat-value">
               {Math.round(totalRuntime / 60).toLocaleString()}
               <span className="stat-unit"> hrs</span>
             </div>
             <div className="stat-sub">{totalRuntime.toLocaleString()} minutes</div>
-          </div>
-          <div className="stat-tile">
+          </ClickableStat>
+
+          <ClickableStat onClick={() => setExplain({
+            title: 'Recommended rate',
+            body: `Of your ${rated.length} rated movies, ${positives} got Like or Love. ${positivePct}% is that fraction. Higher means a more enthusiastic palette.`,
+          })}>
             <div className="stat-label">Recommended rate</div>
             <div className="stat-value">{positivePct}%</div>
             <div className="stat-sub">{positives} liked or loved</div>
-          </div>
+          </ClickableStat>
+
           {topDecade && (
-            <div className="stat-tile">
+            <ClickableStat onClick={() => setExplain({
+              title: 'Favourite decade',
+              body: `The decade with the most rated movies in your list. The ${topDecade[0]}s leads with ${topDecade[1]}. Ties break by whichever decade was hit first.`,
+            })}>
               <div className="stat-label">Favourite decade</div>
               <div className="stat-value">{topDecade[0]}s</div>
               <div className="stat-sub">{topDecade[1]} movies</div>
-            </div>
+            </ClickableStat>
           )}
+
           {avgImdb && (
-            <div className="stat-tile">
+            <ClickableStat onClick={() => setExplain({
+              title: 'Avg IMDb of picks',
+              body: 'Plain average of imdb_rating across your rated movies that have an IMDb rating. Movies without a rating on IMDb are excluded from the denominator.',
+            })}>
               <div className="stat-label">Avg IMDb of picks</div>
               <div className="stat-value">⭐ {avgImdb}</div>
-            </div>
+            </ClickableStat>
           )}
+
           {longest && longest.m.duration_minutes && (
-            <div className="stat-tile">
+            <ClickableStat onClick={() => setExplain({
+              title: 'Longest sit',
+              body: 'The movie with the highest duration_minutes among everything you\'ve rated. Endurance trophy, not a recommendation.',
+            })}>
               <div className="stat-label">Longest sit</div>
               <div className="stat-value">{longest.m.duration_minutes} min</div>
               <div className="stat-sub">{longest.m.title}</div>
-            </div>
+            </ClickableStat>
+          )}
+
+          <ClickableStat onClick={() => setExplain({
+            title: 'Movie nights',
+            body: 'Number of past Maybe Movie sessions where you were on the attendee list and a movie was actually watched. Cancelled sessions don\'t count.',
+          })}>
+            <div className="stat-label">Movie nights</div>
+            <div className="stat-value">{movieNights}</div>
+            <div className="stat-sub">attended &amp; watched</div>
+          </ClickableStat>
+
+          {movieNightMinutes > 0 && (
+            <ClickableStat onClick={() => setExplain({
+              title: 'Hours at movie night',
+              body: 'Sum of duration_minutes for the movies watched during sessions you attended, converted to hours. Counts time you spent in the room with the group, regardless of how you rated each movie.',
+            })}>
+              <div className="stat-label">Hours at movie night</div>
+              <div className="stat-value">
+                {Math.round(movieNightMinutes / 60).toLocaleString()}
+                <span className="stat-unit"> hrs</span>
+              </div>
+              <div className="stat-sub">{movieNightMinutes.toLocaleString()} minutes together</div>
+            </ClickableStat>
+          )}
+
+          {groupRatingOnPicks && (
+            <ClickableStat onClick={() => setExplain({
+              title: 'Group rating on your picks',
+              body: 'For every movie you rated Like or Love that the group then watched together, we map each attendee\'s rating to a number (Love=5, Like=4, Meh=3, Eh=2, Hate=1) and average them — that\'s the group score for that movie. This tile shows the average across all such movies. Higher means your taste lands well with the group.',
+            })}>
+              <div className="stat-label">Group rating on your picks</div>
+              <div className="stat-value">
+                {groupRatingOnPicks.avg}
+                <span className="stat-unit"> / 5</span>
+              </div>
+              <div className="stat-sub">
+                across {groupRatingOnPicks.count} pick{groupRatingOnPicks.count === 1 ? '' : 's'}
+              </div>
+            </ClickableStat>
           )}
         </div>
       </div>
+      {explain && <ExplainPopup title={explain.title} body={explain.body} onClose={() => setExplain(null)} />}
     </section>
   );
 }
+
+// Clickable stat shell. Wraps the inner labels/values so the whole tile is
+// tappable; the parent passes a description through onClick that pops the
+// "how is this calculated" modal.
+function ClickableStat({ className = 'stat-tile', onClick, children }) {
+  return (
+    <div
+      className={`${className} clickable`}
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+    >
+      {children}
+      <span className="stat-info" aria-hidden="true">ⓘ</span>
+    </div>
+  );
+}
+
+// Reused by both ProfileStats and PairingCard. Renders inside the existing
+// .modal / .modal-backdrop styling, with a single Close action.
+function ExplainPopup({ title, body, onClose }) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+        <h3 style={{ marginTop: 0 }}>{title}</h3>
+        <div style={{ color: 'var(--muted)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{body}</div>
+        <div className="row" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
+          <button onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export { ExplainPopup };
 
 function BechdelDonut({ passes, fails, unknown }) {
   const total = passes + fails + unknown;

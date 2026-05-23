@@ -13,6 +13,7 @@ import AddMovie from './pages/AddMovie.jsx';
 import MaybeMovie from './pages/MaybeMovie.jsx';
 import Profile from './pages/Profile.jsx';
 import UserProfile from './pages/UserProfile.jsx';
+import Users from './pages/Users.jsx';
 import Admin from './pages/Admin.jsx';
 import ImportFormats from './pages/ImportFormats.jsx';
 import Careers from './pages/Careers.jsx';
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="/add" element={<Protected><AddMovie /></Protected>} />
         <Route path="/maybe" element={<Protected><MaybeMovie /></Protected>} />
         <Route path="/profile" element={<Protected><Profile /></Protected>} />
+        <Route path="/users" element={<Protected><Users /></Protected>} />
         <Route path="/users/:id" element={<Protected><UserProfile /></Protected>} />
         <Route path="/admin" element={<AdminOnly><Admin /></AdminOnly>} />
         <Route path="/admin/import-formats" element={<AdminOnly><ImportFormats /></AdminOnly>} />
