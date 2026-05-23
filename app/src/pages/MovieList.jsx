@@ -13,6 +13,8 @@ export default function MovieList() {
   const [movies, setMovies] = useState(null);
   const [err, setErr] = useState(null);
   const [q, setQ] = useState('');
+  const [includeWatched, setIncludeWatched] = useState(false);
+  const [groupWatchedIds, setGroupWatchedIds] = useState(() => new Set());
   // Default to list on phone-width, grid otherwise. localStorage overrides.
   const [view, setView] = useState(() => {
     if (typeof window === 'undefined') return 'grid';
@@ -35,6 +37,21 @@ export default function MovieList() {
     }
   }
   useEffect(() => { load(); }, []);
+
+  // Pull past Maybe Movie sessions so we can filter out movies that have
+  // already been watched as a group. Auth-required endpoint — anonymous
+  // viewers just get an empty set, which means the "Include watched"
+  // filter is effectively a no-op for them (they see everything).
+  useEffect(() => {
+    if (!user) return;
+    api.get('/api/maybe/history').then((h) => {
+      const ids = new Set();
+      for (const s of (h || [])) {
+        if (s.watched_movie_id) ids.add(s.watched_movie_id);
+      }
+      setGroupWatchedIds(ids);
+    }).catch(() => {});
+  }, [user]);
 
   // Save scroll position when navigating away (e.g. into a movie detail
   // page) and restore it once movies have loaded on return. The browser's
@@ -63,9 +80,11 @@ export default function MovieList() {
   const filteredMovies = useMemo(() => {
     if (!movies) return null;
     const needle = q.trim().toLowerCase();
-    if (!needle) return movies;
-    return movies.filter((m) => m.title.toLowerCase().includes(needle));
-  }, [movies, q]);
+    let out = movies;
+    if (needle) out = out.filter((m) => m.title.toLowerCase().includes(needle));
+    if (!includeWatched) out = out.filter((m) => !groupWatchedIds.has(m.id));
+    return out;
+  }, [movies, q, includeWatched, groupWatchedIds]);
 
   if (err) return <div className="container error">{err}</div>;
   if (!movies) return <div className="container">Loading…</div>;
@@ -98,14 +117,23 @@ export default function MovieList() {
         </div>
       </div>
       {user ? (
-        <form onSubmit={startAdd} className="row quick-add">
+        <form onSubmit={startAdd} className="row quick-add" style={{ flexWrap: 'wrap' }}>
           <input
             type="text"
             placeholder="Filter movies in this list…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            style={{ flex: 1 }}
+            style={{ flex: 1, minWidth: 200 }}
           />
+          <button
+            type="button"
+            className={`want-pill${includeWatched ? ' active' : ''}`}
+            aria-pressed={includeWatched}
+            onClick={() => setIncludeWatched((v) => !v)}
+          >
+            <span aria-hidden="true">{includeWatched ? '☑' : '☐'}</span>
+            {' '}Include watched
+          </button>
         </form>
       ) : (
         <div className="card" style={{ marginBottom: '1rem' }}>

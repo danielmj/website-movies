@@ -30,7 +30,6 @@ export default function Users() {
                   <span style={{ color: 'var(--muted)' }}> (you)</span>
                 )}
               </span>
-              {u.email && <span className="users-list-email">{u.email}</span>}
             </Link>
           </li>
         ))}
