@@ -1,18 +1,22 @@
-// Suggest a drink pairing for a movie based on its genres and decade.
+// Suggest a drink pairing for a movie based on its genres.
 //
 // How it works:
-//   1. If the movie's decade has a strong period override (1920s, 50s, 70s,
-//      80s) we honour that — those eras are too distinctive to ignore.
-//   2. Otherwise we build a "vibe profile" by collecting descriptors from
-//      each of the movie's genres. A descriptor mentioned by multiple
-//      genres weighs more than one mentioned by a single genre.
-//   3. Every drink in the library has its own descriptor set. We score
+//   1. We build a "vibe profile" by collecting descriptors from each of
+//      the movie's genres. A descriptor mentioned by multiple genres
+//      weighs more than one mentioned by a single genre.
+//   2. Every drink in the library has its own descriptor set. We score
 //      each drink by summing the genre weights of the descriptors it
 //      shares with the movie's vibe profile.
-//   4. The highest score wins. Ties first prefer "tighter" drinks (fewer
+//   3. The highest score wins. Ties first prefer "tighter" drinks (fewer
 //      unmatched descriptors), then break deterministically by the
 //      movie's id so different movies with the same top score still get
 //      different pours, but the same movie keeps the same pour on reload.
+//
+// Note on decades: we deliberately don't use `movie.decade` here. That
+// field is derived from the release year, not the era the movie depicts —
+// a 2024 film set in Ancient Rome would still register as 2020s and
+// muddy the pairing. If we ever get reliable "depicted era" metadata, we
+// can re-introduce decade as another contributor to the vibe profile.
 //
 // The "why" line surfaces the descriptors that lined up — that's the
 // algorithm's reasoning, not a hand-written tasting note.
@@ -184,19 +188,9 @@ const DRINKS = [
   { type: 'shot', name: 'Fernet-Branca',               desc: ['bitter', 'sharp', 'unsettling', 'dark', 'urban', 'fast'] },
 ];
 
-const DECADE_OVERRIDES = {
-  1920: { type: 'cocktail', name: 'Sidecar',         why: 'pre-Prohibition energy' },
-  1950: { type: 'cocktail', name: 'Manhattan',       why: 'mid-century steady-handed' },
-  1970: { type: 'cocktail', name: 'Tequila Sunrise', why: 'shag carpet in a glass' },
-  1980: { type: 'cocktail', name: 'Cosmopolitan',    why: 'neon, hairspray, cocktail glasses' },
-};
-
 const DEFAULT = { type: 'wine', name: "Whatever's already open", why: 'no genre data — open whatever you reach first', source: 'fallback' };
 
 export function pickPairing(movie) {
-  if (movie?.decade && DECADE_OVERRIDES[movie.decade]) {
-    return { ...DECADE_OVERRIDES[movie.decade], source: 'decade' };
-  }
   const genres = (movie?.genres || []);
   if (!genres.length) return { ...DEFAULT };
 

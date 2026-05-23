@@ -283,9 +283,6 @@ function PairingCard({ movie }) {
   const [open, setOpen] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const reason = (() => {
-    if (p.source === 'decade') {
-      return `${p.name} fits because the movie is from the ${movie.decade}s — that decade has a strong period vibe and ${p.name} is the era pour.`;
-    }
     if (p.source === 'algorithm') {
       const matches = p.matches || [];
       const allGenres = movie.genres || [];
@@ -325,11 +322,6 @@ function PairingCard({ movie }) {
       <h4 style={{ margin: '0 0 0.4rem 0' }}>The full algorithm</h4>
       <ol className="pairing-algo-list">
         <li>
-          <strong>Decade override.</strong> A handful of distinctive eras
-          (1920s, 50s, 70s, 80s) get hand-picked pours and short-circuit
-          everything below. Most movies don't trigger this.
-        </li>
-        <li>
           <strong>Build a vibe profile.</strong> Each genre carries a small
           set of descriptors (e.g. Action → <em>intense, bold, punchy, strong, fast, fiery</em>).
           We loop over every genre on the movie and tally a frequency map.
@@ -361,6 +353,11 @@ function PairingCard({ movie }) {
         </li>
       </ol>
       <p style={{ marginTop: '0.6rem', marginBottom: 0 }}>
+        Decade is intentionally skipped — the data we have is the
+        <em> release</em> decade, not the era the movie depicts, which would
+        be the only useful signal for pairing.
+      </p>
+      <p style={{ marginTop: '0.4rem', marginBottom: 0 }}>
         Tuning points: descriptors per genre and per drink live in{' '}
         <code>app/src/pairing.js</code>; the tiebreak rule is the last
         block of <code>pickPairing</code>.
