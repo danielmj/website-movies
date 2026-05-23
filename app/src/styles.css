@@ -986,21 +986,17 @@ a.pill:hover, a.pill-link:hover {
 .toolbar label { font-size: 0.75rem; }
 /* Checkbox-style filters live in a single full-width row that wraps onto
  * additional rows only when individual pills can't fit alongside their
- * neighbors. flex-basis: 100% pushes the group below the dropdown row.
- * Inside the group is plain block flow (not flex) so the floated Random
- * button on the right pulls the pill flow around it. */
+ * neighbors. Random sits on its own row below the pills, left-aligned. */
 .toolbar .toolbar-checks {
   flex: 0 0 100%;
   min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }
-.toolbar .toolbar-checks > .want-pill {
-  display: inline-block;
-  margin: 0 0.4rem 0.4rem 0;
-  vertical-align: middle;
-}
-.toolbar .toolbar-checks > .random-btn {
-  float: right;
-  margin: 0 0 0.4rem 0.5rem;
+.toolbar .toolbar-random {
+  flex: 0 0 100%;
 }
 
 .attendees-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }

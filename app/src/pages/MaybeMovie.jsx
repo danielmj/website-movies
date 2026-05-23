@@ -25,6 +25,7 @@ export default function MaybeMovie() {
   const [filters, setFilters] = useState({
     hideHated: true,
     hideNotInterested: false,
+    hideGroupWatched: true,
     onlyUnseen: false,
     genre: '',
     maxMinutes: '',
@@ -33,12 +34,23 @@ export default function MaybeMovie() {
   });
   const [sort, setSort] = useState('haventSeen');
   const [quickQ, setQuickQ] = useState('');
+  const [groupWatchedIds, setGroupWatchedIds] = useState(() => new Set());
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     api.get('/api/movies').then(setMovies);
     api.get('/api/auth/users').then(setAllUsers);
+    // Pull past maybe-session history so we know which movies the group
+    // has already watched together. Used by the "Have not watched as
+    // group" filter pill below.
+    api.get('/api/maybe/history').then((h) => {
+      const ids = new Set();
+      for (const s of (h || [])) {
+        if (s.watched_movie_id) ids.add(s.watched_movie_id);
+      }
+      setGroupWatchedIds(ids);
+    }).catch(() => {});
   }, []);
 
   if (!active) {
@@ -91,6 +103,7 @@ export default function MaybeMovie() {
   const filtered = annotated.filter((m) => {
     if (filters.hideHated && m._anyHated) return false;
     if (filters.hideNotInterested && m._anyNotInterested) return false;
+    if (filters.hideGroupWatched && groupWatchedIds.has(m.id)) return false;
     if (filters.onlyUnseen && m._seenCount > 0) return false;
     if (filters.genre && !(m.genres || []).includes(filters.genre)) return false;
     if (filters.maxMinutes && (m.duration_minutes || 0) > Number(filters.maxMinutes)) return false;
@@ -204,17 +217,22 @@ export default function MaybeMovie() {
         <div className="toolbar-checks">
           <button
             type="button"
-            className="random-btn"
-            disabled={sorted.length === 0}
-            onClick={() => {
-              if (!sorted.length) return;
-              const pick = sorted[Math.floor(Math.random() * sorted.length)];
-              setHighlightId(pick.id);
-              const el = document.getElementById(`maybe-movie-${pick.id}`);
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              setTimeout(() => setHighlightId((cur) => cur === pick.id ? null : cur), 2200);
-            }}
-          >🎲 Random</button>
+            className={`want-pill${filters.hideGroupWatched ? ' active' : ''}`}
+            aria-pressed={filters.hideGroupWatched}
+            onClick={() => setFilters({ ...filters, hideGroupWatched: !filters.hideGroupWatched })}
+          >
+            <span aria-hidden="true">{filters.hideGroupWatched ? '☑' : '☐'}</span>
+            {' '}Not watched as group
+          </button>
+          <button
+            type="button"
+            className={`want-pill${filters.hideHated ? ' active' : ''}`}
+            aria-pressed={filters.hideHated}
+            onClick={() => setFilters({ ...filters, hideHated: !filters.hideHated })}
+          >
+            <span aria-hidden="true">{filters.hideHated ? '☑' : '☐'}</span>
+            {' '}Hide if anyone hates
+          </button>
           <button
             type="button"
             className={`want-pill${filters.bechdelOnly ? ' active' : ''}`}
@@ -235,15 +253,6 @@ export default function MaybeMovie() {
           </button>
           <button
             type="button"
-            className={`want-pill${filters.hideHated ? ' active' : ''}`}
-            aria-pressed={filters.hideHated}
-            onClick={() => setFilters({ ...filters, hideHated: !filters.hideHated })}
-          >
-            <span aria-hidden="true">{filters.hideHated ? '☑' : '☐'}</span>
-            {' '}Hide if anyone really hates
-          </button>
-          <button
-            type="button"
             className={`want-pill${filters.hideNotInterested ? ' active' : ''}`}
             aria-pressed={filters.hideNotInterested}
             onClick={() => setFilters({ ...filters, hideNotInterested: !filters.hideNotInterested })}
@@ -251,6 +260,21 @@ export default function MaybeMovie() {
             <span aria-hidden="true">{filters.hideNotInterested ? '☑' : '☐'}</span>
             {' '}Hide if not interested
           </button>
+        </div>
+        <div className="toolbar-random">
+          <button
+            type="button"
+            className="random-btn"
+            disabled={sorted.length === 0}
+            onClick={() => {
+              if (!sorted.length) return;
+              const pick = sorted[Math.floor(Math.random() * sorted.length)];
+              setHighlightId(pick.id);
+              const el = document.getElementById(`maybe-movie-${pick.id}`);
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              setTimeout(() => setHighlightId((cur) => cur === pick.id ? null : cur), 2200);
+            }}
+          >🎲 Random</button>
         </div>
       </div>
 
