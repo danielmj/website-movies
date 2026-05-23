@@ -58,9 +58,10 @@ router.get('/bechdel-list', requireAuth, async (req, res, next) => {
 
 async function previewByTmdbId(tmdbId) {
   const meta = await tmdb.details(tmdbId);
-  const [imdbRating, bech] = await Promise.all([
+  const [imdbRating, bech, existing] = await Promise.all([
     omdb.imdbRating(meta.imdb_id),
     bechdel.lookup(meta.imdb_id),
+    pool.query('SELECT id FROM movies WHERE tmdb_id = ? OR imdb_id = ? LIMIT 1', [meta.tmdb_id, meta.imdb_id]),
   ]);
   return {
     tmdb_id: meta.tmdb_id,
@@ -75,6 +76,7 @@ async function previewByTmdbId(tmdbId) {
     imdb_rating: imdbRating,
     bechdel_rating: bech.rating,
     bechdel_passes: bech.passes,
+    existing_id: existing[0]?.[0]?.id ?? null,
   };
 }
 

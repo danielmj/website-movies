@@ -109,6 +109,7 @@ export default function MaybeMovie() {
     if (filters.maxMinutes && (m.duration_minutes || 0) > Number(filters.maxMinutes)) return false;
     if (filters.decade && Number(m.decade) !== Number(filters.decade)) return false;
     if (filters.bechdelOnly && !m.bechdel_passes) return false;
+    if (quickQ.trim() && !m.title.toLowerCase().includes(quickQ.trim().toLowerCase())) return false;
     return true;
   });
 
@@ -167,21 +168,15 @@ export default function MaybeMovie() {
 
       <form
         className="row quick-add"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const t = quickQ.trim();
-          if (!t) return;
-          navigate(`/add?q=${encodeURIComponent(t)}`, { state: { from: location.pathname } });
-        }}
+        onSubmit={(e) => e.preventDefault()}
       >
         <input
           type="text"
-          placeholder="Add a movie to consider — search by title…"
+          placeholder="Filter movies in this list…"
           value={quickQ}
           onChange={(e) => setQuickQ(e.target.value)}
           style={{ flex: 1 }}
         />
-        <button className="primary" disabled={!quickQ.trim()}>Search</button>
       </form>
 
       <div className="toolbar">

@@ -924,6 +924,26 @@ a.pill:hover, a.pill-link:hover {
 .search-result .body { padding: 0.5rem 0.6rem; }
 .search-result h4 { margin: 0; font-size: 0.85rem; }
 .search-result .meta { color: var(--muted); font-size: 0.75rem; }
+/* IMDb / Rotten Tomatoes side links per search result. Clicks on these
+ * stop propagation so they don't trigger the parent's "open preview". */
+.search-result-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+.search-result-links a {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+}
+.search-result-links a:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
 
 /* Text-only list of Bechdel-tested movies, grouped by year. Rendered on the
  * Add page when the user picks Browse mode. Each row is a button that

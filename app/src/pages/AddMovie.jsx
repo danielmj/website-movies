@@ -106,7 +106,15 @@ export default function AddMovie() {
     setPreviewLoading(true);
     setErr(null);
     try {
-      setPreview(await api.get(`/api/movies/preview/${r.tmdb_id}`));
+      const p = await api.get(`/api/movies/preview/${r.tmdb_id}`);
+      // Already in the list — skip the add flow and jump straight to its
+      // detail page so the user lands on the comments / ratings they
+      // probably wanted in the first place.
+      if (p.existing_id) {
+        navigate(`/movies/${p.existing_id}`);
+        return;
+      }
+      setPreview(p);
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -118,7 +126,12 @@ export default function AddMovie() {
     setPreviewLoading(true);
     setErr(null);
     try {
-      setPreview(await api.get(`/api/movies/preview-by-imdb/${r.imdb_id}`));
+      const p = await api.get(`/api/movies/preview-by-imdb/${r.imdb_id}`);
+      if (p.existing_id) {
+        navigate(`/movies/${p.existing_id}`);
+        return;
+      }
+      setPreview(p);
     } catch (e) {
       setErr(`${e.message}${e.status === 404 ? ' (TMDB doesn\'t have this title — pick a different one)' : ''}`);
     } finally {
@@ -200,7 +213,17 @@ export default function AddMovie() {
           </form>
           {err && <div className="error">{err}</div>}
 
-          {mode === 'search' && (
+          {mode === 'search' && searching && (
+            <div className="card" style={{ marginTop: '1rem', color: 'var(--muted)' }}>Searching…</div>
+          )}
+
+          {mode === 'search' && !searching && results.length === 0 && q.trim() && (
+            <div className="card" style={{ marginTop: '1rem', color: 'var(--muted)' }}>
+              No results for "{q.trim()}".
+            </div>
+          )}
+
+          {mode === 'search' && results.length > 0 && (
             <div className="search-results">
               {results.map((r) => (
                 <div key={r.tmdb_id} className="search-result" onClick={() => pickByTmdb(r)}>
@@ -211,6 +234,18 @@ export default function AddMovie() {
                   <div className="body">
                     <h4>{r.title}</h4>
                     <div className="meta">{r.year || '—'}</div>
+                    <div className="search-result-links" onClick={(e) => e.stopPropagation()}>
+                      <a
+                        href={`https://www.imdb.com/find?q=${encodeURIComponent(r.title + (r.year ? ' ' + r.year : ''))}&s=tt&ttype=ft`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >IMDb ↗</a>
+                      <a
+                        href={`https://www.rottentomatoes.com/search?search=${encodeURIComponent(r.title + (r.year ? ' ' + r.year : ''))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >Rotten Tomatoes ↗</a>
+                    </div>
                   </div>
                 </div>
               ))}

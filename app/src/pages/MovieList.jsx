@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
@@ -54,11 +54,18 @@ export default function MovieList() {
   }, [movies !== null]);
 
   function startAdd(e) {
+    // No-op submit handler — we filter the local list as the user types
+    // instead of round-tripping through the Add page. The header's
+    // "Search" link is the path for adding a new movie.
     e.preventDefault();
-    const trimmed = q.trim();
-    if (!trimmed) return;
-    navigate(`/add?q=${encodeURIComponent(trimmed)}`, { state: { from: location.pathname } });
   }
+
+  const filteredMovies = useMemo(() => {
+    if (!movies) return null;
+    const needle = q.trim().toLowerCase();
+    if (!needle) return movies;
+    return movies.filter((m) => m.title.toLowerCase().includes(needle));
+  }, [movies, q]);
 
   if (err) return <div className="container error">{err}</div>;
   if (!movies) return <div className="container">Loading…</div>;
@@ -69,7 +76,9 @@ export default function MovieList() {
       <div className="spread" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h1 style={{ margin: 0 }}>Movies</h1>
         <div className="row" style={{ gap: '0.6rem', alignItems: 'center' }}>
-          <span style={{ color: 'var(--muted)' }}>{movies.length} in the list</span>
+          <span style={{ color: 'var(--muted)' }}>
+            {q.trim() ? `${filteredMovies.length} of ${movies.length}` : `${movies.length} in the list`}
+          </span>
           <div className="view-toggle" role="tablist" aria-label="View mode">
             <button
               type="button"
@@ -92,12 +101,11 @@ export default function MovieList() {
         <form onSubmit={startAdd} className="row quick-add">
           <input
             type="text"
-            placeholder="Add a movie — search by title…"
+            placeholder="Filter movies in this list…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             style={{ flex: 1 }}
           />
-          <button className="primary" disabled={!q.trim()}>Search</button>
         </form>
       ) : (
         <div className="card" style={{ marginBottom: '1rem' }}>
@@ -106,16 +114,18 @@ export default function MovieList() {
         </div>
       )}
       {movies.length === 0 ? (
-        <div className="card">No movies yet.{user ? ' Use the search above to add one.' : ''}</div>
+        <div className="card">No movies yet.{user ? ' Use Search up top to add one.' : ''}</div>
+      ) : filteredMovies.length === 0 ? (
+        <div className="card">No movies match "{q.trim()}".</div>
       ) : view === 'grid' ? (
         <div className="movie-grid">
-          {movies.map((m) => (
+          {filteredMovies.map((m) => (
             <MovieCard key={m.id} movie={m} onChange={load} />
           ))}
         </div>
       ) : (
         <div className="movie-list">
-          {movies.map((m) => <MovieListItem key={m.id} movie={m} onChange={load} />)}
+          {filteredMovies.map((m) => <MovieListItem key={m.id} movie={m} onChange={load} />)}
         </div>
       )}
     </div>
