@@ -1428,6 +1428,7 @@ a.pill:hover, a.pill-link:hover {
   .movie-row {
     position: relative;
     grid-template-columns: auto 60px 1fr;
+    column-gap: 1rem;
   }
   .movie-row .right {
     position: absolute;
@@ -1441,6 +1442,7 @@ a.pill:hover, a.pill-link:hover {
   }
   .movie-row .info {
     display: block;
+    padding-left: 0.25rem;
   }
   .movie-row .info > * + * {
     margin-top: 0.25rem;
