@@ -68,7 +68,8 @@ export default function StartMaybeModal({ onClose }) {
               onClick={() => { onClose(); navigate('/maybe'); }}
             >History</button>
             <button className="primary" disabled={busy || selected.size === 0} onClick={go}>
-              Start maybe movie
+              <span className="start-maybe-full">Start maybe movie</span>
+              <span className="start-maybe-short">Start</span>
             </button>
           </div>
         </div>

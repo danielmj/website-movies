@@ -1042,6 +1042,14 @@ a.pill:hover, a.pill-link:hover {
 }
 .modal h2 { margin-top: 0; }
 
+/* Start-maybe-movie modal: long label by default, short "Start" label on
+ * narrow screens so Cancel + History + Start can fit on a single row. */
+.start-maybe-short { display: none; }
+@media (max-width: 480px) {
+  .start-maybe-full { display: none; }
+  .start-maybe-short { display: inline; }
+}
+
 /* "Perhaps not" exit-interview modal: stacks question blocks with a clear
  * label + answer affordance per row. */
 .exit-interview .exit-question {
