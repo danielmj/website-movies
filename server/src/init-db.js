@@ -33,6 +33,10 @@ const MIGRATIONS = [
   // in O(1).
   `ALTER TABLE users ADD COLUMN google_user_id VARCHAR(255) NULL`,
   `ALTER TABLE users ADD UNIQUE KEY uniq_google (google_user_id)`,
+  // Soft-hide flag — admin-controlled. Hidden users are filtered out of the
+  // user picker on the Maybe Movie attendee modal and from the public users
+  // list, but their existing user_movies + ratings stay intact for history.
+  `ALTER TABLE users ADD COLUMN hidden BOOLEAN NOT NULL DEFAULT FALSE`,
 ];
 
 (async () => {

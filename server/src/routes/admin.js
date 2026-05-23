@@ -14,12 +14,12 @@ const router = express.Router();
 router.get('/users', requireAdmin, async (req, res, next) => {
   try {
     const [rows] = await pool.query(`
-      SELECT u.id, u.name, u.email, u.is_admin, u.last_seen_at, u.created_at,
+      SELECT u.id, u.name, u.email, u.is_admin, u.hidden, u.last_seen_at, u.created_at,
         (SELECT COUNT(*) FROM user_movies WHERE user_id = u.id) AS movie_count
       FROM users u
       ORDER BY (u.last_seen_at IS NULL), u.last_seen_at DESC, u.created_at DESC
     `);
-    res.json(rows.map((r) => ({ ...r, is_admin: !!r.is_admin })));
+    res.json(rows.map((r) => ({ ...r, is_admin: !!r.is_admin, hidden: !!r.hidden })));
   } catch (err) {
     next(err);
   }
@@ -90,6 +90,21 @@ router.post('/users/:id/toggle-admin', requireAdmin, async (req, res, next) => {
     const id = Number(req.params.id);
     if (id === req.session.userId) return res.status(400).json({ error: 'cannot change your own admin flag' });
     const [r] = await pool.query('UPDATE users SET is_admin = NOT is_admin WHERE id = ?', [id]);
+    if (r.affectedRows === 0) return res.status(404).json({ error: 'user not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Toggle a user's hidden flag. Hidden users disappear from the public
+// /api/auth/users list (attendee picker, etc.) but their existing data
+// (movies they added, ratings) is left intact.
+router.post('/users/:id/toggle-hidden', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (id === req.session.userId) return res.status(400).json({ error: 'cannot hide yourself' });
+    const [r] = await pool.query('UPDATE users SET hidden = NOT hidden WHERE id = ?', [id]);
     if (r.affectedRows === 0) return res.status(404).json({ error: 'user not found' });
     res.json({ ok: true });
   } catch (err) {

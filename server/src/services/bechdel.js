@@ -32,34 +32,4 @@ async function lookup(imdbId) {
   }
 }
 
-// Cached full list of Bechdel-passing movies. The bechdeltest "getAllMovies"
-// endpoint returns ~10k entries; we filter to rating=3 (passes all three
-// criteria), strip to the fields we actually need, and reuse for an hour
-// so the Add page's browse mode is snappy on subsequent loads.
-let _passingCache = null;
-let _passingCacheAt = 0;
-const PASSING_TTL_MS = 60 * 60 * 1000;
-
-async function allPassing() {
-  const now = Date.now();
-  if (_passingCache && now - _passingCacheAt < PASSING_TTL_MS) return _passingCache;
-  const r = await fetch('https://bechdeltest.com/api/v1/getAllMovies');
-  usage.record('bechdel', r.status);
-  if (!r.ok) throw new Error(`bechdeltest getAllMovies failed: ${r.status}`);
-  const j = await r.json();
-  const list = Array.isArray(j) ? j : [];
-  _passingCache = list
-    .filter((m) => Number(m.rating) === 3 && m.imdbid && m.title)
-    .map((m) => ({
-      imdb_id: 'tt' + String(m.imdbid),
-      title: m.title,
-      year: m.year ? Number(m.year) : null,
-    }))
-    // Newest first — most recognizable titles end up at the top of the
-    // unfiltered list. The user's search bar still filters the whole set.
-    .sort((a, b) => (b.year || 0) - (a.year || 0));
-  _passingCacheAt = now;
-  return _passingCache;
-}
-
-module.exports = { lookup, allPassing };
+module.exports = { lookup };

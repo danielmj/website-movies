@@ -46,16 +46,6 @@ router.get('/preview-by-imdb/:imdbId', requireAuth, async (req, res, next) => {
   }
 });
 
-// Bechdel-passing movies — full list (filtered to rating=3) for the Add
-// page's browse mode. Server caches for an hour, so this is cheap.
-router.get('/bechdel-passing', requireAuth, async (req, res, next) => {
-  try {
-    res.json(await bechdel.allPassing());
-  } catch (err) {
-    next(err);
-  }
-});
-
 async function previewByTmdbId(tmdbId) {
   const meta = await tmdb.details(tmdbId);
   const [imdbRating, bech] = await Promise.all([

@@ -9,7 +9,7 @@ import SegmentedControl from '../components/SegmentedControl.jsx';
 // in TMDB mode it submits to /search, in Bechdel mode it filters the list
 // client-side as you type.
 const MODES = [
-  { key: 'search',  label: 'Search TMDB' },
+  { key: 'search',  label: 'Search all movies' },
   { key: 'bechdel', label: 'Browse Bechdel passers' },
 ];
 
@@ -71,7 +71,7 @@ export default function AddMovie() {
     setBechdelLoading(true);
     setErr(null);
     try {
-      setBechdelList(await api.get('/api/movies/bechdel-passing'));
+      setBechdelList(await fetchBechdelDirect());
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -83,6 +83,46 @@ export default function AddMovie() {
     setMode(next);
     setErr(null);
     if (next === 'bechdel') loadBechdel();
+  }
+
+  // Fetch the Bechdel-passing list directly from bechdeltest.com (their API
+  // serves CORS, so the browser can call it with no proxy). Try the bulk
+  // getAllMovies endpoint first; on failure (it sometimes returns 410),
+  // fall back to per-year fetches for the last 30 years in parallel batches.
+  async function fetchBechdelDirect() {
+    const norm = (raw) => raw
+      .filter((m) => Number(m.rating) === 3 && m.imdbid && m.title)
+      .map((m) => ({
+        imdb_id: 'tt' + String(m.imdbid),
+        title: m.title,
+        year: m.year ? Number(m.year) : null,
+      }))
+      .sort((a, b) => (b.year || 0) - (a.year || 0));
+
+    try {
+      const r = await fetch('https://bechdeltest.com/api/v1/getAllMovies');
+      if (r.ok) {
+        const all = await r.json();
+        if (Array.isArray(all) && all.length) return norm(all);
+      }
+    } catch { /* fall through to per-year */ }
+
+    const thisYear = new Date().getFullYear();
+    const years = [];
+    for (let y = thisYear; y > thisYear - 30; y--) years.push(y);
+    const collected = [];
+    const batchSize = 6;
+    for (let i = 0; i < years.length; i += batchSize) {
+      const arrays = await Promise.all(years.slice(i, i + batchSize).map(async (y) => {
+        try {
+          const r = await fetch(`https://bechdeltest.com/api/v1/getMoviesByYear?year=${y}`);
+          if (!r.ok) return [];
+          return await r.json();
+        } catch { return []; }
+      }));
+      for (const a of arrays) if (Array.isArray(a)) collected.push(...a);
+    }
+    return norm(collected);
   }
 
   // Filter happens here, not on the server, so typing is instant. Limit

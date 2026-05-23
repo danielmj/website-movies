@@ -679,7 +679,10 @@ a.pill:hover, a.pill-link:hover {
   margin-top: 0.5rem;
   align-items: flex-start;
 }
-.rating-controls .want-pill { margin-top: 0.35rem; }
+.rating-controls .want-pill {
+  margin-top: 0.2rem;
+  margin-bottom: 0.2rem;
+}
 .rating-controls.compact { gap: 0.4rem; margin-top: 0.4rem; }
 
 .preview-card {
@@ -937,6 +940,12 @@ a.pill:hover, a.pill-link:hover {
   padding: 0.3rem 0.55rem;
   font-size: 0.8rem;
   margin-right: 0.25rem;
+}
+.admin-row-hidden td { opacity: 0.55; }
+.admin-row-hidden td:first-child::after {
+  content: ' (hidden)';
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
 .quick-add { gap: 0.5rem; margin-bottom: 1rem; }

@@ -145,7 +145,9 @@ router.get('/me', requireAuth, async (req, res, next) => {
 
 router.get('/users', requireAuth, async (req, res, next) => {
   try {
-    const [rows] = await pool.query('SELECT id, name, email FROM users ORDER BY name');
+    // Hidden users are excluded from the public picker (attendee selection,
+    // etc.) but their existing user_movies stay in place for ratings/history.
+    const [rows] = await pool.query('SELECT id, name, email FROM users WHERE hidden = FALSE ORDER BY name');
     res.json(rows);
   } catch (err) {
     next(err);

@@ -82,6 +82,18 @@ export default function Admin() {
     }
   }
 
+  async function toggleHidden(u) {
+    setBusyId(u.id);
+    try {
+      await api.post(`/api/admin/users/${u.id}/toggle-hidden`);
+      load();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   if (err) return <div className="container error">{err}</div>;
   if (!users) return <div className="container">Loading…</div>;
 
@@ -104,6 +116,7 @@ export default function Admin() {
               <th>Last seen</th>
               <th>Joined</th>
               <th>Admin</th>
+              <th>Hidden</th>
               <th></th>
             </tr>
           </thead>
@@ -112,7 +125,7 @@ export default function Admin() {
               const isMe = u.id === user.id;
               const busy = busyId === u.id;
               return (
-                <tr key={u.id}>
+                <tr key={u.id} className={u.hidden ? 'admin-row-hidden' : ''}>
                   <td>{u.name}{isMe && <span style={{ color: 'var(--muted)' }}> (you)</span>}</td>
                   <td>{u.email}</td>
                   <td>{u.movie_count}</td>
@@ -124,6 +137,14 @@ export default function Admin() {
                       checked={!!u.is_admin}
                       disabled={isMe || busy}
                       onChange={() => toggleAdmin(u)}
+                    />
+                  </td>
+                  <td title="Hidden users don't appear in the Maybe Movie attendee picker.">
+                    <input
+                      type="checkbox"
+                      checked={!!u.hidden}
+                      disabled={isMe || busy}
+                      onChange={() => toggleHidden(u)}
                     />
                   </td>
                   <td>
