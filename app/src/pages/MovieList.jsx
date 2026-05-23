@@ -111,6 +111,21 @@ function MovieListItem({ movie, onChange }) {
   const { user } = useAuth();
   const me = user ? movie.user_movies.find((u) => u.user_id === user.id) : null;
   const needsResponse = user && !me;
+  const [busy, setBusy] = useState(false);
+
+  async function removeMovie(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`Remove "${movie.title}" from the list?`)) return;
+    setBusy(true);
+    try {
+      await api.del(`/api/movies/${movie.id}`);
+      onChange();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className={`movie-list-item${needsResponse ? ' needs-response' : ''}`}>
       <Link
@@ -134,6 +149,16 @@ function MovieListItem({ movie, onChange }) {
         </Link>
         {user && <RatingControls movie={movie} me={me} onChange={onChange} compact />}
       </div>
+      {user && (
+        <button
+          type="button"
+          className="card-remove list-remove"
+          aria-label={`Remove ${movie.title}`}
+          onClick={removeMovie}
+          disabled={busy}
+          title="Remove from list"
+        >×</button>
+      )}
     </div>
   );
 }

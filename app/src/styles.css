@@ -222,6 +222,7 @@ input[type=text], input[type=email], input[type=password], input[type=number], i
  * are intentionally absent here to keep rows scannable on phones. */
 .movie-list { display: flex; flex-direction: column; gap: 0.4rem; }
 .movie-list-item {
+  position: relative;
   display: grid;
   grid-template-columns: 60px 1fr;
   gap: 0.75rem;
@@ -231,6 +232,9 @@ input[type=text], input[type=email], input[type=password], input[type=number], i
    * present the info column is taller and naturally fills the row. */
   align-items: center;
   padding: 0.5rem;
+  /* Reserve room on the right for the absolute-positioned remove button so
+   * long titles don't slide underneath it. */
+  padding-right: 2rem;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -259,6 +263,15 @@ input[type=text], input[type=email], input[type=password], input[type=number], i
 .movie-list-item .info .title { font-weight: 500; }
 .movie-list-item .info .muted { color: var(--muted); font-size: 0.8rem; }
 .movie-list-item.needs-response { border-color: var(--accent); }
+/* Remove-from-list "×" pinned to the top-right of each row. */
+.movie-list-item .list-remove {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  font-size: 1rem;
+}
 
 /* Outbound links to IMDb / Rotten Tomatoes etc on the detail page. */
 .external-links {
