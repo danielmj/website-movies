@@ -108,7 +108,7 @@ export default function MaybeMovie() {
   return (
     <div className="container">
       <div className="spread" style={{ marginBottom: '1rem' }}>
-        <h1 style={{ margin: 0 }}>Maybe movie</h1>
+        <h1 style={{ margin: 0 }}>Maybe movie?</h1>
         <button className="danger" onClick={async () => { if (confirm('End this maybe movie?')) { await cancel(active.id); navigate('/'); } }}>
           End session
         </button>
@@ -120,7 +120,9 @@ export default function MaybeMovie() {
             <div style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>Attendees</div>
             <div className="attendees-list" style={{ marginTop: '0.4rem' }}>
               {active.attendees.length === 0 && <span style={{ color: 'var(--muted)' }}>No one yet</span>}
-              {active.attendees.map((a) => <span key={a.user_id} className="pill">{a.name}</span>)}
+              {active.attendees.map((a) => (
+                <Link key={a.user_id} to={`/users/${a.user_id}`} className="pill pill-link">{a.name}</Link>
+              ))}
             </div>
           </div>
           <button onClick={() => setEditingAttendees(true)}>Edit attendees</button>

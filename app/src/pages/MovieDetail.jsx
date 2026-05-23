@@ -149,8 +149,13 @@ export default function MovieDetail() {
 
       {user ? (
         <>
-          <section className="card" style={{ marginTop: '1rem' }}>
+          <section className={`card${!me ? ' needs-response' : ''}`} style={{ marginTop: '1rem' }}>
             <h2 style={{ marginTop: 0 }}>Your rating</h2>
+            {!me && (
+              <div className="card-warn" role="note" style={{ marginBottom: '0.5rem' }}>
+                ⚠ Please mark whether you've seen this
+              </div>
+            )}
             <div className="rating-controls">
               <SegmentedControl
                 value={seenState}
@@ -158,9 +163,6 @@ export default function MovieDetail() {
                 options={[['seen', 'Seen it'], ['not_seen', "Haven't seen"]]}
                 disabled={busy}
               />
-              {seenState === 'seen' && (
-                <RatingPicker value={me.rating} onChange={(r) => setStatus('seen', r)} disabled={busy} />
-              )}
               <button
                 type="button"
                 className={`want-pill${wantsToSee ? ' active' : ''}`}
@@ -171,6 +173,9 @@ export default function MovieDetail() {
                 <span aria-hidden="true">{wantsToSee ? '☑' : '☐'}</span>
                 {' '}Want to see
               </button>
+              {seenState === 'seen' && (
+                <RatingPicker value={me.rating} onChange={(r) => setStatus('seen', r)} disabled={busy} />
+              )}
             </div>
           </section>
 

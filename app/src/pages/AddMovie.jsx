@@ -1,8 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import RatingPicker, { STATUSES } from '../components/RatingPicker.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
+
+// Two browse modes: TMDB search-as-you-type (default) and a locally-loaded
+// list of every Bechdel-passing movie. The same search bar drives both:
+// in TMDB mode it submits to /search, in Bechdel mode it filters the list
+// client-side as you type.
+const MODES = [
+  { key: 'search',  label: 'Search TMDB' },
+  { key: 'bechdel', label: 'Browse Bechdel passers' },
+];
 
 export default function AddMovie() {
   const [searchParams] = useSearchParams();
@@ -11,9 +20,16 @@ export default function AddMovie() {
   const initialQ = searchParams.get('q') || '';
   const returnTo = location.state?.from || '/';
 
+  const [mode, setMode] = useState('search');
   const [q, setQ] = useState(initialQ);
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
+
+  // Bechdel mode: we fetch the full passing list once (cached on the server
+  // for an hour) and filter client-side. ~10k entries — totally fine in
+  // memory, and keeps typing responsive without round-trips.
+  const [bechdelList, setBechdelList] = useState(null);
+  const [bechdelLoading, setBechdelLoading] = useState(false);
 
   // Once a result is picked we fetch full metadata WITHOUT saving. The movie
   // and the user's rating are only persisted when "Add to list" is clicked.
@@ -46,16 +62,60 @@ export default function AddMovie() {
 
   async function search(e) {
     e.preventDefault();
-    await doSearch(q);
+    if (mode === 'search') await doSearch(q);
+    // In bechdel mode the filter is reactive — no submit needed.
   }
 
-  async function pick(r) {
+  async function loadBechdel() {
+    if (bechdelList || bechdelLoading) return;
+    setBechdelLoading(true);
+    setErr(null);
+    try {
+      setBechdelList(await api.get('/api/movies/bechdel-passing'));
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBechdelLoading(false);
+    }
+  }
+
+  function switchMode(next) {
+    setMode(next);
+    setErr(null);
+    if (next === 'bechdel') loadBechdel();
+  }
+
+  // Filter happens here, not on the server, so typing is instant. Limit
+  // the rendered list to a reasonable number — DOM gets unhappy past
+  // ~1000 items and there's no point scrolling 10k titles.
+  const filteredBechdel = useMemo(() => {
+    if (!bechdelList) return [];
+    const needle = q.trim().toLowerCase();
+    const list = needle
+      ? bechdelList.filter((m) => m.title.toLowerCase().includes(needle))
+      : bechdelList;
+    return list.slice(0, 500);
+  }, [bechdelList, q]);
+
+  async function pickByTmdb(r) {
     setPreviewLoading(true);
     setErr(null);
     try {
       setPreview(await api.get(`/api/movies/preview/${r.tmdb_id}`));
     } catch (e) {
       setErr(e.message);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function pickByImdb(r) {
+    setPreviewLoading(true);
+    setErr(null);
+    try {
+      setPreview(await api.get(`/api/movies/preview-by-imdb/${r.imdb_id}`));
+    } catch (e) {
+      setErr(`${e.message}${e.status === 404 ? ' (TMDB doesn\'t have this title — pick a different one)' : ''}`);
     } finally {
       setPreviewLoading(false);
     }
@@ -84,32 +144,61 @@ export default function AddMovie() {
 
       {!preview && !previewLoading && (
         <>
+          <div className="auth-methods" role="tablist" aria-label="Add mode" style={{ marginBottom: '1rem' }}>
+            {MODES.map((m) => (
+              <button
+                key={m.key}
+                type="button"
+                role="tab"
+                aria-selected={mode === m.key}
+                className={mode === m.key ? 'active' : ''}
+                onClick={() => switchMode(m.key)}
+              >{m.label}</button>
+            ))}
+          </div>
+
           <form onSubmit={search} className="row">
             <input
               type="text"
-              placeholder="Search by title…"
+              placeholder={mode === 'search' ? 'Search by title…' : 'Filter Bechdel-passing movies…'}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               autoFocus
               style={{ flex: 1 }}
             />
-            <button className="primary" disabled={!q.trim() || searching}>Search</button>
+            {mode === 'search' && (
+              <button className="primary" disabled={!q.trim() || searching}>Search</button>
+            )}
           </form>
           {err && <div className="error">{err}</div>}
-          <div className="search-results">
-            {results.map((r) => (
-              <div key={r.tmdb_id} className="search-result" onClick={() => pick(r)}>
-                <div
-                  className="poster"
-                  style={r.poster_url ? { backgroundImage: `url(${r.poster_url})` } : {}}
-                />
-                <div className="body">
-                  <h4>{r.title}</h4>
-                  <div className="meta">{r.year || '—'}</div>
+
+          {mode === 'search' && (
+            <div className="search-results">
+              {results.map((r) => (
+                <div key={r.tmdb_id} className="search-result" onClick={() => pickByTmdb(r)}>
+                  <div
+                    className="poster"
+                    style={r.poster_url ? { backgroundImage: `url(${r.poster_url})` } : {}}
+                  />
+                  <div className="body">
+                    <h4>{r.title}</h4>
+                    <div className="meta">{r.year || '—'}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
+
+          {mode === 'bechdel' && (
+            <BechdelList
+              loading={bechdelLoading}
+              total={bechdelList?.length || 0}
+              shown={filteredBechdel.length}
+              filter={q}
+              items={filteredBechdel}
+              onPick={pickByImdb}
+            />
+          )}
         </>
       )}
 
@@ -171,5 +260,32 @@ export default function AddMovie() {
         </div>
       )}
     </div>
+  );
+}
+
+// Tall scrollable list, one row per Bechdel-passer. Bechdeltest doesn't
+// publish poster URLs so rows are text-only — we re-fetch full metadata
+// (poster, runtime, genres, IMDb rating) on click via /preview-by-imdb.
+function BechdelList({ loading, total, shown, filter, items, onPick }) {
+  if (loading) return <div className="card" style={{ marginTop: '1rem' }}>Loading the Bechdel list…</div>;
+  if (!total) return null;
+  return (
+    <>
+      <div style={{ color: 'var(--muted)', fontSize: '0.85rem', marginTop: '0.5rem' }}>
+        {filter.trim()
+          ? `${shown.toLocaleString()} of ${total.toLocaleString()} match "${filter.trim()}"${shown >= 500 ? ' (showing first 500)' : ''}`
+          : `${total.toLocaleString()} Bechdel-passing movies (showing newest 500 — type to filter)`}
+      </div>
+      <ul className="bechdel-list">
+        {items.map((m) => (
+          <li key={m.imdb_id}>
+            <button type="button" className="bechdel-row" onClick={() => onPick(m)}>
+              <span className="title">{m.title}</span>
+              <span className="muted">{m.year || ''}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

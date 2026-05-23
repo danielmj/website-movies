@@ -380,7 +380,29 @@ input[type=text], input[type=email], input[type=password], input[type=number], i
   text-decoration: none;
 }
 .movie-card .card-title:hover { color: var(--accent); }
+
+/* Per-user breakdown (other users' status / rating) on the bottom of a
+ * movie card. One line per user; emoji for rating, fallback to status
+ * label otherwise; ☑ if they also want to see. */
+.others-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.others-list a { color: var(--text); text-decoration: none; }
+.others-list a:hover { color: var(--accent); text-decoration: none; }
+.others-list .rating-emoji { font-size: 1rem; }
+.others-list .want-mark { color: var(--accent); }
 .movie-card.needs-response { border-color: var(--accent); }
+/* Generic flag for any card / panel that's waiting on the user — same
+ * accent border as the card list view. Used on the movie-detail "Your
+ * rating" card when the user hasn't responded yet. */
+.needs-response { border-color: var(--accent); }
 .card-warn {
   background: rgba(255, 209, 102, 0.12);
   border: 1px solid var(--accent);
@@ -544,6 +566,17 @@ input[type=text], input[type=email], input[type=password], input[type=number], i
 }
 .pill.good { color: var(--good); border-color: rgba(6,214,160,0.3); }
 .pill.bad { color: var(--bad); border-color: rgba(239,71,111,0.3); }
+/* When a pill is also a Link (e.g. attendee → user profile), give it a
+ * hover affordance so it reads as tappable. */
+a.pill, a.pill-link {
+  text-decoration: none;
+  color: var(--text);
+}
+a.pill:hover, a.pill-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+}
 
 .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 .spread { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
@@ -716,6 +749,37 @@ input[type=text], input[type=email], input[type=password], input[type=number], i
 .search-result .body { padding: 0.5rem 0.6rem; }
 .search-result h4 { margin: 0; font-size: 0.85rem; }
 .search-result .meta { color: var(--muted); font-size: 0.75rem; }
+
+/* Tall scrollable text-only list of Bechdel-passing movies. Rendered on the
+ * Add page when the user picks Browse mode. Each row is a button that
+ * triggers a TMDB lookup-by-imdb on click. */
+.bechdel-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  max-height: 60vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.bechdel-list li + li { border-top: 1px solid var(--border); }
+.bechdel-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0.55rem 0.85rem;
+  text-align: left;
+  font-size: 0.95rem;
+  color: var(--text);
+  cursor: pointer;
+}
+.bechdel-row:hover { background: var(--panel-2); border-color: transparent; }
+.bechdel-row .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bechdel-row .muted { color: var(--muted); font-size: 0.85rem; flex-shrink: 0; margin-left: 0.5rem; }
 
 .toolbar {
   display: flex;

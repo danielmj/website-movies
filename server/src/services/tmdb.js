@@ -47,4 +47,19 @@ async function details(tmdbId) {
   };
 }
 
-module.exports = { search, details };
+// Reverse-lookup: given an IMDb id (e.g. "tt0123456"), ask TMDB's /find
+// endpoint for the corresponding TMDB movie id. Returns null if TMDB
+// doesn't have it. Used by the Bechdel-browse flow to get from a
+// bechdeltest entry back into the regular preview pipeline.
+async function findByImdb(imdbId) {
+  if (!imdbId) return null;
+  const url = `${BASE}/find/${encodeURIComponent(imdbId)}?external_source=imdb_id&api_key=${key()}`;
+  const r = await fetch(url);
+  usage.record('tmdb', r.status);
+  if (!r.ok) throw new Error(`TMDB find failed: ${r.status}`);
+  const j = await r.json();
+  const movie = (j.movie_results || [])[0];
+  return movie?.id || null;
+}
+
+module.exports = { search, details, findByImdb };

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { RATING_LABEL, STATUS_LABEL } from './RatingPicker.jsx';
+import { RATING_EMOJI, STATUS_LABEL } from './RatingPicker.jsx';
 import RatingControls from './RatingControls.jsx';
 import { useAuth } from '../auth.jsx';
 
@@ -75,11 +75,18 @@ export default function MovieCard({ movie, onChange }) {
             )}
             <RatingControls movie={movie} me={me} onChange={onChange} />
             {others.length > 0 && (
-              <div className="meta" style={{ marginTop: '0.5rem' }}>
-                {others
-                  .map((u) => `${u.name}: ${STATUS_LABEL[u.status]}${u.status === 'seen' && u.rating ? ` (${RATING_LABEL[u.rating]})` : ''}`)
-                  .join(' · ')}
-              </div>
+              <ul className="others-list">
+                {others.map((u) => (
+                  <li key={u.user_id}>
+                    <Link to={`/users/${u.user_id}`}>{u.name}</Link>
+                    {': '}
+                    {u.status === 'seen' && u.rating
+                      ? <span className="rating-emoji" aria-label={`Rated ${u.rating}`}>{RATING_EMOJI[u.rating]}</span>
+                      : STATUS_LABEL[u.status]}
+                    {u.want_to_see ? <span className="want-mark" title="Wants to see">{' ☑'}</span> : null}
+                  </li>
+                ))}
+              </ul>
             )}
           </>
         ) : (

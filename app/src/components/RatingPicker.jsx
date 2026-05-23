@@ -19,6 +19,11 @@ const RATING_EMOJIS = [
   ['really_dont_like', '🤮'],
 ];
 
+// Map { rating-key → emoji } for callers that just want to render the
+// emoji next to a rating string elsewhere in the UI (e.g. the per-user
+// breakdown on cards).
+export const RATING_EMOJI = Object.fromEntries(RATING_EMOJIS);
+
 // RATINGS is still exported (key/label tuple list) for any caller that
 // wants the canonical short labels — "Love", "Like", etc.
 export const RATINGS = [

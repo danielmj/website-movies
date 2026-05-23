@@ -4,9 +4,6 @@ import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { RATING_LABEL } from '../components/RatingPicker.jsx';
 
-// Buckets are derived from the canonical fields. "Want to see" is a separate
-// flag, so a movie can appear in both "Watched & rated" and "Want to see" if
-// the user wants to rewatch — show it in want-to-see for visibility.
 const BUCKETS = [
   { key: 'seen',          label: 'Watched & rated' },
   { key: 'want_to_see',   label: 'Want to see' },
@@ -14,7 +11,10 @@ const BUCKETS = [
   { key: 'no_response',   label: "Haven't responded yet" },
 ];
 
-function bucketFor(me) {
+// Decide which bucket(s) a user_movies row goes into. A movie can be both
+// "Watched & rated" and "Want to see" — we want users who've already seen
+// something but want to rewatch it to show up in want_to_see too.
+export function bucketFor(me) {
   if (!me) return ['no_response'];
   const out = [];
   if (me.status === 'seen') out.push('seen');
@@ -23,45 +23,33 @@ function bucketFor(me) {
   return out.length ? out : ['no_response'];
 }
 
-export default function Profile() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [movies, setMovies] = useState(null);
-  const [err, setErr] = useState(null);
-
-  useEffect(() => {
-    api.get('/api/movies').then(setMovies).catch((e) => setErr(e.message));
-  }, []);
-
-  if (err) return <div className="container error">{err}</div>;
-  if (!movies) return <div className="container">Loading…</div>;
-
+// Shared renderer for both /profile (self) and /users/:id (any user).
+// `subjectUser` is the user whose lists are being shown; `viewer` is the
+// currently-signed-in user (for "(you)" labels). Pass `actions` to render
+// extra controls in the header (e.g. Sign out, Edit).
+export function ProfileView({ subjectUser, movies, viewer, actions = null, editor = null }) {
   const buckets = { seen: [], want_to_see: [], not_interested: [], no_response: [] };
   for (const m of movies) {
-    const me = m.user_movies.find((u) => u.user_id === user.id);
-    for (const b of bucketFor(me)) {
-      buckets[b].push({ ...m, _me: me || null });
+    const um = m.user_movies.find((u) => u.user_id === subjectUser.id);
+    for (const b of bucketFor(um)) {
+      buckets[b].push({ ...m, _me: um || null });
     }
   }
+  const isSelf = viewer && viewer.id === subjectUser.id;
 
   return (
     <div className="container">
       <div className="spread" style={{ marginBottom: '1rem' }}>
         <div>
-          <h1 style={{ margin: 0 }}>{user.name}</h1>
+          <h1 style={{ margin: 0 }}>{subjectUser.name}{isSelf && <span style={{ color: 'var(--muted)' }}> (you)</span>}</h1>
           <span style={{ color: 'var(--muted)' }}>
             {buckets.seen.length} watched · {movies.length} total
           </span>
         </div>
-        <button
-          className="danger"
-          onClick={async () => { await logout(); navigate('/'); }}
-        >
-          Sign out
-        </button>
+        {actions}
       </div>
 
-      <ProfileEditor />
+      {editor}
 
       {BUCKETS.map(({ key, label }) => {
         const list = buckets[key];
@@ -89,7 +77,7 @@ export default function Profile() {
                         </div>
                         <div className="muted">
                           {key === 'seen' && m._me?.rating
-                            ? `Your rating: ${RATING_LABEL[m._me.rating]}`
+                            ? `Rating: ${RATING_LABEL[m._me.rating]}`
                             : key === 'want_to_see'
                               ? 'Want to see'
                               : key === 'not_interested'
@@ -109,10 +97,37 @@ export default function Profile() {
   );
 }
 
-// Edit name / email / phone / password. Email and phone changes require
-// the user to verify ownership via an OTP sent to the new value (kicks off
-// /api/auth/start, then the patch carries the code). Password changes
-// require the current password (skipped if the user doesn't have one yet).
+export default function Profile() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [movies, setMovies] = useState(null);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    api.get('/api/movies').then(setMovies).catch((e) => setErr(e.message));
+  }, []);
+
+  if (err) return <div className="container error">{err}</div>;
+  if (!movies) return <div className="container">Loading…</div>;
+
+  return (
+    <ProfileView
+      subjectUser={user}
+      movies={movies}
+      viewer={user}
+      actions={(
+        <button
+          className="danger"
+          onClick={async () => { await logout(); navigate('/'); }}
+        >
+          Sign out
+        </button>
+      )}
+      editor={<ProfileEditor />}
+    />
+  );
+}
+
 function ProfileEditor() {
   const { user, refresh } = useAuth();
   const [open, setOpen] = useState(false);

@@ -11,6 +11,7 @@ import MovieDetail from './pages/MovieDetail.jsx';
 import AddMovie from './pages/AddMovie.jsx';
 import MaybeMovie from './pages/MaybeMovie.jsx';
 import Profile from './pages/Profile.jsx';
+import UserProfile from './pages/UserProfile.jsx';
 import Admin from './pages/Admin.jsx';
 
 function Protected({ children }) {
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/add" element={<Protected><AddMovie /></Protected>} />
         <Route path="/maybe" element={<Protected><MaybeMovie /></Protected>} />
         <Route path="/profile" element={<Protected><Profile /></Protected>} />
+        <Route path="/users/:id" element={<Protected><UserProfile /></Protected>} />
         <Route path="/admin" element={<AdminOnly><Admin /></AdminOnly>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

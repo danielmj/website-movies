@@ -25,29 +25,58 @@ router.get('/preview/:tmdbId', requireAuth, async (req, res, next) => {
   try {
     const tmdbId = Number(req.params.tmdbId);
     if (!tmdbId) return res.status(400).json({ error: 'tmdb_id required' });
-    const meta = await tmdb.details(tmdbId);
-    const [imdbRating, bech] = await Promise.all([
-      omdb.imdbRating(meta.imdb_id),
-      bechdel.lookup(meta.imdb_id),
-    ]);
-    res.json({
-      tmdb_id: meta.tmdb_id,
-      imdb_id: meta.imdb_id,
-      title: meta.title,
-      year: meta.year,
-      decade: meta.decade,
-      duration_minutes: meta.duration_minutes,
-      poster_url: meta.poster_url,
-      overview: meta.overview,
-      genres: meta.genres,
-      imdb_rating: imdbRating,
-      bechdel_rating: bech.rating,
-      bechdel_passes: bech.passes,
-    });
+    res.json(await previewByTmdbId(tmdbId));
   } catch (err) {
     next(err);
   }
 });
+
+// Same preview shape, addressed by IMDb id instead of TMDB id. Used by the
+// Bechdel-browse flow on the Add page (bechdeltest entries only carry
+// imdb_id, so we have to translate before pulling TMDB details).
+router.get('/preview-by-imdb/:imdbId', requireAuth, async (req, res, next) => {
+  try {
+    const imdbId = String(req.params.imdbId || '').trim();
+    if (!imdbId) return res.status(400).json({ error: 'imdb_id required' });
+    const tmdbId = await tmdb.findByImdb(imdbId);
+    if (!tmdbId) return res.status(404).json({ error: 'not on TMDB' });
+    res.json(await previewByTmdbId(tmdbId));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Bechdel-passing movies — full list (filtered to rating=3) for the Add
+// page's browse mode. Server caches for an hour, so this is cheap.
+router.get('/bechdel-passing', requireAuth, async (req, res, next) => {
+  try {
+    res.json(await bechdel.allPassing());
+  } catch (err) {
+    next(err);
+  }
+});
+
+async function previewByTmdbId(tmdbId) {
+  const meta = await tmdb.details(tmdbId);
+  const [imdbRating, bech] = await Promise.all([
+    omdb.imdbRating(meta.imdb_id),
+    bechdel.lookup(meta.imdb_id),
+  ]);
+  return {
+    tmdb_id: meta.tmdb_id,
+    imdb_id: meta.imdb_id,
+    title: meta.title,
+    year: meta.year,
+    decade: meta.decade,
+    duration_minutes: meta.duration_minutes,
+    poster_url: meta.poster_url,
+    overview: meta.overview,
+    genres: meta.genres,
+    imdb_rating: imdbRating,
+    bechdel_rating: bech.rating,
+    bechdel_passes: bech.passes,
+  };
+}
 
 // Add a movie by tmdb_id. Pulls TMDB details + OMDB rating + Bechdel result.
 // If already in DB returns existing row.

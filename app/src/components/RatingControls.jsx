@@ -65,9 +65,6 @@ export default function RatingControls({ movie, me, onChange, compact = false })
         options={SEEN_OPTIONS}
         disabled={busy}
       />
-      {seenState === 'seen' && (
-        <RatingPicker value={me.rating} onChange={(r) => setStatus('seen', r)} disabled={busy} />
-      )}
       <button
         type="button"
         className={`want-pill${wantsToSee ? ' active' : ''}`}
@@ -78,6 +75,9 @@ export default function RatingControls({ movie, me, onChange, compact = false })
         <span aria-hidden="true">{wantsToSee ? '☑' : '☐'}</span>
         {' '}Want to see
       </button>
+      {seenState === 'seen' && (
+        <RatingPicker value={me.rating} onChange={(r) => setStatus('seen', r)} disabled={busy} />
+      )}
     </div>
   );
 }
