@@ -527,7 +527,26 @@ router.post('/bechdel/import-titles/commit', requireAdmin, async (req, res, next
         results.push({ ...it, ok: false, error: e.message });
       }
     }
-    res.json({ items: results });
+    // Push the new bechdel rows onto any matching movies — without this,
+    // movies imported earlier (when the imdb_id wasn't yet in
+    // bechdel_movies) would stay stuck at NULL bechdel_passes.
+    let synced = 0;
+    try { synced = await bechdel.syncMovies(); } catch (e) {
+      console.error('[bechdel] post-commit sync failed:', e.message);
+    }
+    res.json({ items: results, movies_synced: synced });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// One-shot: backfill movies.bechdel_passes / bechdel_rating from the
+// bechdel_movies table. Useful when movies were imported before their
+// bechdel data became available, or when the seeded JSON was updated.
+router.post('/bechdel/sync-movies', requireAdmin, async (req, res, next) => {
+  try {
+    const synced = await bechdel.syncMovies();
+    res.json({ ok: true, movies_synced: synced });
   } catch (err) {
     next(err);
   }

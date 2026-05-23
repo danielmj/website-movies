@@ -649,7 +649,7 @@ function ImportBechdel() {
         onChange={(e) => setText(e.target.value)}
         style={{ width: '100%', fontFamily: 'monospace', fontSize: '0.85rem' }}
       />
-      <div className="row" style={{ marginTop: '0.5rem', gap: '0.5rem' }}>
+      <div className="row" style={{ marginTop: '0.5rem', gap: '0.5rem', flexWrap: 'wrap' }}>
         <button className="primary" onClick={search} disabled={busy}>
           {busy && !items ? 'Searching…' : 'Search'}
         </button>
@@ -658,6 +658,7 @@ function ImportBechdel() {
             {busy ? 'Saving…' : `Save ${items.filter((it) => it.include && (it.chosen_imdb_id || it.chosen_tmdb_id)).length} entries`}
           </button>
         )}
+        <SyncBechdelButton />
       </div>
       {err && <div className="error">{err}</div>}
 
@@ -683,6 +684,33 @@ function ImportBechdel() {
         </div>
       )}
     </div>
+  );
+}
+
+// One-shot button: tells the server to push every cached bechdel result
+// from `bechdel_movies` onto the matching `movies` rows. Useful when
+// movies were imported before their bechdel data became available.
+function SyncBechdelButton() {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+  async function run() {
+    setBusy(true); setMsg(null);
+    try {
+      const r = await api.post('/api/admin/bechdel/sync-movies', {});
+      setMsg(`${r.movies_synced} movie${r.movies_synced === 1 ? '' : 's'} updated.`);
+    } catch (e) {
+      setMsg(`error: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <button onClick={run} disabled={busy}>
+        {busy ? 'Syncing…' : 'Sync to movies'}
+      </button>
+      {msg && <span style={{ alignSelf: 'center', color: 'var(--muted)', fontSize: '0.85rem' }}>{msg}</span>}
+    </>
   );
 }
 

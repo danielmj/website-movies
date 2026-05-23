@@ -91,7 +91,11 @@ app.listen(port, () => {
 const usage = require('./services/usage');
 setInterval(() => { usage.pruneOlderThan90Days(); }, 24 * 60 * 60 * 1000);
 
-// Seed the Bechdel-results table on startup if empty. Idempotent —
-// subsequent boots are a no-op once the rows are there.
+// Seed the Bechdel-results table on startup if empty, then push any
+// new/changed entries onto the cached bechdel_passes column on movies. Both
+// are idempotent — subsequent boots are a no-op once everything's in sync.
 const bechdel = require('./services/bechdel');
-bechdel.seedFromJson();
+bechdel.seedFromJson()
+  .then(() => bechdel.syncMovies())
+  .then((n) => { if (n) console.log(`[bechdel] synced ${n} movies from bechdel_movies`); })
+  .catch((err) => console.error('[bechdel] startup sync failed:', err.message));

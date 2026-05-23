@@ -26,6 +26,26 @@ async function lookup(imdbId) {
   }
 }
 
+// Push bechdel results from `bechdel_movies` onto matching `movies` rows.
+// `movies.bechdel_passes` / `bechdel_rating` are cached at insert time, so
+// any movie that was added before its imdb_id appeared in the bechdel table
+// (e.g. admin-imported movies, then bechdel data imported afterwards) ends
+// up stuck at NULL. Re-running this query is cheap and self-healing.
+async function syncMovies() {
+  const [r] = await pool.query(`
+    UPDATE movies m
+    JOIN bechdel_movies b ON b.imdb_id = m.imdb_id
+    SET m.bechdel_passes = b.passes,
+        m.bechdel_rating = CASE WHEN b.passes THEN 3 ELSE 0 END
+    WHERE m.imdb_id IS NOT NULL
+      AND (
+        m.bechdel_passes IS NULL
+        OR m.bechdel_passes <> b.passes
+      )
+  `);
+  return r.affectedRows || 0;
+}
+
 // Full bechdel dataset for the Add page's browse mode. Sorted newest-first
 // so the client can render grouped-by-year sections in a sensible order.
 // ~10k rows / ~750KB — fine to ship in one shot, gives the search bar full
@@ -76,4 +96,4 @@ async function seedFromJson() {
   }
 }
 
-module.exports = { lookup, listForBrowse, seedFromJson };
+module.exports = { lookup, listForBrowse, seedFromJson, syncMovies };
