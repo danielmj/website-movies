@@ -484,7 +484,6 @@ function PerhapsNotPopup({ onClose, onSubmit }) {
   const [moods, setMoods] = useState(new Set());
   const [racing, setRacing] = useState(null);
   const [impulsive, setImpulsive] = useState(null);
-  const [drinks, setDrinks] = useState('');
   const [period, setPeriod] = useState('');
 
   function toggleMood(key) {
@@ -540,20 +539,6 @@ function PerhapsNotPopup({ onClose, onSubmit }) {
           value={impulsive}
           onChange={setImpulsive}
         />
-
-        <div className="exit-question">
-          <label className="exit-question-label" htmlFor="exit-drinks">
-            How many drinks have you had in the past hour?
-          </label>
-          <input
-            id="exit-drinks"
-            type="number"
-            min={0}
-            value={drinks}
-            onChange={(e) => setDrinks(e.target.value)}
-            style={{ width: 120 }}
-          />
-        </div>
 
         <div className="exit-question">
           <label className="exit-question-label" htmlFor="exit-period">
