@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS maybe_sessions (
 CREATE TABLE IF NOT EXISTS maybe_attendees (
   session_id INT NOT NULL,
   user_id INT NOT NULL,
+  rating_prompt_dismissed_at TIMESTAMP NULL,
   PRIMARY KEY (session_id, user_id),
   FOREIGN KEY (session_id) REFERENCES maybe_sessions(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -122,6 +123,21 @@ CREATE TABLE IF NOT EXISTS watch_events (
   FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE,
   INDEX idx_movie (movie_id),
   INDEX idx_watched_at (watched_at)
+);
+
+-- Free-text user comments on a movie. Edited/deleted by the author or any
+-- admin. updated_at is bumped on edit so the UI can flag "edited" suffixes.
+CREATE TABLE IF NOT EXISTS movie_comments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  movie_id INT NOT NULL,
+  user_id INT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id)  REFERENCES users(id)  ON DELETE CASCADE,
+  INDEX idx_movie (movie_id),
+  INDEX idx_user  (user_id)
 );
 
 -- Cached Bechdel test results. Seeded from server/data/bechdel-movies.json

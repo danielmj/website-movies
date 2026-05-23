@@ -296,6 +296,96 @@ input[type=text], input[type=email], input[type=password], input[type=number], i
   text-decoration: none;
 }
 
+/* Movie-detail comments. Each entry stacks the author + date over the body
+ * with edit/delete actions tucked under and aligned right. */
+.comment-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.comment {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+}
+.comment-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+.comment-author { color: var(--text); font-weight: 500; text-decoration: none; }
+.comment-author:hover { color: var(--accent); }
+.comment-date { color: var(--muted); font-size: 0.8rem; flex-shrink: 0; }
+.comment-body { white-space: pre-wrap; line-height: 1.4; }
+.comment-actions {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  margin-top: 0.4rem;
+}
+.comment-actions button {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.8rem;
+}
+
+/* Post-Maybe-Movie rating prompt — sits at the top of the home page until
+ * the attendee rates the watched movie, hits X, or attends a newer session.
+ * Slightly lifted background + warning sigil to read as an actionable
+ * notice rather than a chrome banner. */
+.rating-prompt {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  margin-bottom: 1rem;
+}
+.rating-prompt-icon {
+  flex-shrink: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--accent);
+}
+.rating-prompt-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+}
+.rating-prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+.rating-prompt-close {
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border-color: transparent;
+}
+.rating-prompt-close:hover {
+  color: white;
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+}
+@media (max-width: 480px) {
+  .rating-prompt { flex-wrap: wrap; }
+  .rating-prompt-text { flex-basis: 100%; }
+}
+
 .view-toggle {
   display: inline-flex;
   background: var(--panel-2);
@@ -719,18 +809,29 @@ a.pill:hover, a.pill-link:hover {
 
 /* Progressive shrink as the surrounding container narrows. The numbers are
  * tuned so the 3-option Interest pill ("Want to see / Indifferent / Not
- * interested") stays on a single line all the way down to ~iPhone-SE width. */
+ * interested") stays on a single line all the way down to ~iPhone-SE width.
+ * The emoji rating pills shrink in lockstep so the whole rating block scales
+ * together rather than drifting in size. */
 @container (max-width: 360px) {
   .rating-controls .segmented { padding: 3px; gap: 3px; }
   .rating-controls .segmented button {
     padding: 0.3rem 0.5rem;
     font-size: 0.78rem;
   }
+  .rating-controls .rating-pills { gap: 0.25rem; }
+  .rating-controls .rating-pill {
+    padding: 0.25rem 0.4rem;
+    font-size: 1rem;
+  }
 }
 @container (max-width: 280px) {
   .rating-controls .segmented button {
     padding: 0.25rem 0.35rem;
     font-size: 0.72rem;
+  }
+  .rating-controls .rating-pill {
+    padding: 0.2rem 0.32rem;
+    font-size: 0.9rem;
   }
 }
 @media (max-width: 480px) {
@@ -739,11 +840,20 @@ a.pill:hover, a.pill-link:hover {
     padding: 0.3rem 0.5rem;
     font-size: 0.78rem;
   }
+  .preview-actions .field .rating-pills { gap: 0.25rem; }
+  .preview-actions .field .rating-pill {
+    padding: 0.25rem 0.4rem;
+    font-size: 1rem;
+  }
 }
 @media (max-width: 360px) {
   .preview-actions .field .segmented button {
     padding: 0.25rem 0.35rem;
     font-size: 0.72rem;
+  }
+  .preview-actions .field .rating-pill {
+    padding: 0.2rem 0.32rem;
+    font-size: 0.9rem;
   }
 }
 
@@ -874,15 +984,17 @@ a.pill:hover, a.pill-link:hover {
 }
 .toolbar .field { margin: 0; min-width: 140px; }
 .toolbar label { font-size: 0.75rem; }
-/* Each checkbox-style filter goes on its own row — they were previously
- * sharing rows with adjacent fields and bumping into each other. */
-.toolbar .toolbar-check {
+/* Checkbox-style filters live in a single full-width row that wraps onto
+ * additional rows only when individual pills can't fit alongside their
+ * neighbors. flex-basis: 100% pushes the group below the dropdown row. */
+.toolbar .toolbar-checks {
   flex: 0 0 100%;
   min-width: 0;
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   align-items: center;
 }
-.toolbar .toolbar-check label { font-size: 0.9rem; }
 
 .attendees-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .attendees-list .pill { font-size: 0.8rem; padding: 0.25rem 0.6rem; }
@@ -926,6 +1038,228 @@ a.pill:hover, a.pill-link:hover {
   overflow: auto;
 }
 .modal h2 { margin-top: 0; }
+
+/* "Perhaps not" exit-interview modal: stacks question blocks with a clear
+ * label + answer affordance per row. */
+.exit-interview .exit-question {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.exit-interview .exit-question-label {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+.exit-interview .exit-mood {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+/* Past-Maybe-Movies list. Each row is a date + outcome (cancelled pill or
+ * watched-movie link), with attendees on a second muted line. Admin-only
+ * × delete button floats to the right of the head row. */
+.maybe-history { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.maybe-history li {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+}
+.maybe-history-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.maybe-history-date { font-weight: 500; flex-shrink: 0; }
+.maybe-history-movie { color: var(--text); text-decoration: none; }
+.maybe-history-movie:hover { color: var(--accent); }
+.maybe-history-meta { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
+.maybe-history-meta a { color: var(--muted); }
+.maybe-history-meta a:hover { color: var(--accent); }
+.maybe-history-delete {
+  margin-left: auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border-color: transparent;
+  flex-shrink: 0;
+}
+.maybe-history-delete:hover {
+  color: white;
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+}
+
+/* Profile / user-page stats panel: bechdel donut on the left, a grid of
+ * compact stat tiles on the right. Wraps to a single column on phones. */
+.profile-stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1.25rem;
+  align-items: center;
+}
+.stat-bechdel {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+.stat-bechdel-legend { font-size: 0.85rem; line-height: 1.6; }
+.stat-bechdel-legend .dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+.stat-bechdel-legend .dot.good { background: var(--good); }
+.stat-bechdel-legend .dot.bad  { background: var(--bad); }
+.stat-bechdel-legend .dot.mute { background: var(--border); }
+.stat-bechdel-legend strong { color: var(--text); margin-left: 0.2rem; }
+
+.stat-donut {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+}
+.stat-donut-hole {
+  position: absolute;
+  inset: 14px;
+  border-radius: 50%;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.stat-donut-pct { font-size: 1.1rem; font-weight: 600; color: var(--text); }
+.stat-donut-label { font-size: 0.7rem; color: var(--muted); margin-top: 0.1rem; }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.6rem;
+}
+.stat-tile {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  min-width: 0;
+}
+.stat-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-value { font-size: 1.25rem; font-weight: 600; margin-top: 0.15rem; }
+.stat-value-list { font-size: 0.95rem; line-height: 1.5; margin-top: 0.15rem; }
+.stat-unit { font-size: 0.85rem; color: var(--muted); font-weight: 400; margin-left: 0.2rem; }
+.stat-sub  { font-size: 0.78rem; color: var(--muted); margin-top: 0.1rem; }
+
+@media (max-width: 600px) {
+  .profile-stats { grid-template-columns: 1fr; }
+  .stat-bechdel { justify-content: center; }
+}
+
+/* Movie-detail drink pairing card. Compact, with a glass emoji on the left
+ * and the name + tasting note on the right. */
+.pairing-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+.pairing-emoji {
+  font-size: 2.4rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.pairing-text { min-width: 0; }
+.pairing-eyebrow {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.pairing-name { font-size: 1.05rem; font-weight: 600; margin-top: 0.15rem; }
+.pairing-why  { color: var(--muted); margin-top: 0.15rem; line-height: 1.4; }
+
+/* Maybe Movie "🎲 Random" highlight: a brief pulse + accent border around
+ * the chosen row so the user can spot which one rolled up. */
+.movie-row.highlighted {
+  animation: maybe-random-pulse 2s ease-out;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+@keyframes maybe-random-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(245, 196, 91, 0.7); }
+  70%  { box-shadow: 0 0 0 14px rgba(245, 196, 91, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 196, 91, 0); }
+}
+
+/* Site footer + the three "footer" pages (Careers / FAQ / What's new). */
+.site-footer {
+  margin-top: 3rem;
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.site-footer-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.site-footer-links { display: flex; gap: 1rem; flex-wrap: wrap; }
+.site-footer-links a { color: var(--muted); text-decoration: none; }
+.site-footer-links a:hover { color: var(--accent); }
+
+.careers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.careers-card { display: flex; flex-direction: column; }
+.careers-meta { color: var(--muted); font-size: 0.8rem; margin-bottom: 0.5rem; }
+
+.faq-list { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem; }
+.faq-item {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+}
+.faq-item summary {
+  cursor: pointer;
+  font-weight: 500;
+  list-style: none;
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::before { content: '▸ '; color: var(--muted); }
+.faq-item[open] summary::before { content: '▾ '; }
+.faq-item p { color: var(--muted); margin: 0.5rem 0 0 0; line-height: 1.5; }
+
+.whatsnew-entry { margin-top: 1rem; }
+.whatsnew-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.whatsnew-date { color: var(--muted); font-size: 0.85rem; }
+.whatsnew-list { margin: 0.6rem 0 0 1.1rem; padding: 0; }
+.whatsnew-list li { margin-bottom: 0.35rem; line-height: 1.45; }
 
 .user-toggle {
   display: flex;

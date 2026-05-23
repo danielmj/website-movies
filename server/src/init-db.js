@@ -44,6 +44,10 @@ const MIGRATIONS = [
   `ALTER TABLE user_movies ADD COLUMN interest ENUM('want_to_see','indifferent','not_interested') NOT NULL DEFAULT 'indifferent'`,
   `UPDATE user_movies SET interest = 'want_to_see' WHERE want_to_see = TRUE`,
   `ALTER TABLE user_movies DROP COLUMN want_to_see`,
+  // Per-attendee dismiss timestamp for the post-Maybe-Movie rating prompt.
+  // The home-page banner that asks attendees to update their rating is
+  // suppressed once this is set (or once they attend a newer ended session).
+  `ALTER TABLE maybe_attendees ADD COLUMN rating_prompt_dismissed_at TIMESTAMP NULL`,
 ];
 
 (async () => {

@@ -6,7 +6,9 @@
 //   TMDB:        no published daily cap; ~50 req/sec rate limit. We surface the
 //                per-second rate so the admin can spot spikes.
 //   OMDB:        1000 req/day on the free tier — the one most likely to hit.
-//   Bechdel:     no published limit. Just show the count for awareness.
+//
+// Bechdel data is now served entirely from a local table seeded on boot, so
+// it isn't tracked here.
 //
 // Override any field via env (TMDB_DAILY_LIMIT, OMDB_DAILY_LIMIT, etc.)
 // without touching this file.
@@ -21,10 +23,6 @@ const LIMITS = {
   },
   omdb: {
     daily: Number(process.env.OMDB_DAILY_LIMIT) || 1000,
-    cost_per_call: 0,
-  },
-  bechdel: {
-    daily: Number(process.env.BECHDEL_DAILY_LIMIT) || null,
     cost_per_call: 0,
   },
 };

@@ -20,8 +20,11 @@ export default function MaybeMovie() {
   const [movies, setMovies] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
   const [editingAttendees, setEditingAttendees] = useState(false);
+  const [showExitPopup, setShowExitPopup] = useState(false);
+  const [highlightId, setHighlightId] = useState(null);
   const [filters, setFilters] = useState({
     hideHated: true,
+    hideNotInterested: false,
     onlyUnseen: false,
     genre: '',
     maxMinutes: '',
@@ -46,6 +49,7 @@ export default function MaybeMovie() {
           <p style={{ color: 'var(--muted)' }}>Click "Maybe movie?" up top to start one.</p>
           <Link to="/">Back to movies</Link>
         </div>
+        <MaybeHistory canDelete={!!user?.is_admin} />
       </div>
     );
   }
@@ -76,6 +80,7 @@ export default function MaybeMovie() {
       _recPct: seen.length ? recPositive.length / seen.length : null,
       _wantPct: attendeeIds.size ? want.length / attendeeIds.size : 0,
       _anyHated: attendeeUm.some((u) => u.rating === 'really_dont_like'),
+      _anyNotInterested: attendeeUm.some((u) => u.interest === 'not_interested'),
       _myVote: myVote ? myVote.vote : null,
       _netVotes: ups - downs,
       _ups: ups,
@@ -85,6 +90,7 @@ export default function MaybeMovie() {
 
   const filtered = annotated.filter((m) => {
     if (filters.hideHated && m._anyHated) return false;
+    if (filters.hideNotInterested && m._anyNotInterested) return false;
     if (filters.onlyUnseen && m._seenCount > 0) return false;
     if (filters.genre && !(m.genres || []).includes(filters.genre)) return false;
     if (filters.maxMinutes && (m.duration_minutes || 0) > Number(filters.maxMinutes)) return false;
@@ -109,10 +115,27 @@ export default function MaybeMovie() {
     <div className="container">
       <div className="spread" style={{ marginBottom: '1rem' }}>
         <h1 style={{ margin: 0 }}>Maybe movie?</h1>
-        <button className="danger" onClick={async () => { if (confirm('End this maybe movie?')) { await cancel(active.id); navigate('/'); } }}>
-          End session
+        <button
+          className="danger"
+          onClick={() => {
+            if (!confirm('End this maybe movie without watching anything?')) return;
+            setShowExitPopup(true);
+          }}
+        >
+          Perhaps not
         </button>
       </div>
+
+      {showExitPopup && (
+        <PerhapsNotPopup
+          onClose={() => setShowExitPopup(false)}
+          onSubmit={async () => {
+            setShowExitPopup(false);
+            await cancel(active.id);
+            navigate('/');
+          }}
+        />
+      )}
 
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="spread">
@@ -156,6 +179,21 @@ export default function MaybeMovie() {
           </select>
         </div>
         <div className="field">
+          <label>&nbsp;</label>
+          <button
+            type="button"
+            disabled={sorted.length === 0}
+            onClick={() => {
+              if (!sorted.length) return;
+              const pick = sorted[Math.floor(Math.random() * sorted.length)];
+              setHighlightId(pick.id);
+              const el = document.getElementById(`maybe-movie-${pick.id}`);
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              setTimeout(() => setHighlightId((cur) => cur === pick.id ? null : cur), 2200);
+            }}
+          >🎲 Random</button>
+        </div>
+        <div className="field">
           <label>Genre</label>
           <select value={filters.genre} onChange={(e) => setFilters({ ...filters, genre: e.target.value })}>
             <option value="">Any</option>
@@ -178,7 +216,7 @@ export default function MaybeMovie() {
             onChange={(e) => setFilters({ ...filters, maxMinutes: e.target.value })}
           />
         </div>
-        <div className="field toolbar-check">
+        <div className="toolbar-checks">
           <button
             type="button"
             className={`want-pill${filters.bechdelOnly ? ' active' : ''}`}
@@ -188,8 +226,6 @@ export default function MaybeMovie() {
             <span aria-hidden="true">{filters.bechdelOnly ? '☑' : '☐'}</span>
             {' '}Bechdel passes
           </button>
-        </div>
-        <div className="field toolbar-check">
           <button
             type="button"
             className={`want-pill${filters.onlyUnseen ? ' active' : ''}`}
@@ -199,8 +235,6 @@ export default function MaybeMovie() {
             <span aria-hidden="true">{filters.onlyUnseen ? '☑' : '☐'}</span>
             {' '}No attendee has seen
           </button>
-        </div>
-        <div className="field toolbar-check">
           <button
             type="button"
             className={`want-pill${filters.hideHated ? ' active' : ''}`}
@@ -210,13 +244,26 @@ export default function MaybeMovie() {
             <span aria-hidden="true">{filters.hideHated ? '☑' : '☐'}</span>
             {' '}Hide if anyone really hates
           </button>
+          <button
+            type="button"
+            className={`want-pill${filters.hideNotInterested ? ' active' : ''}`}
+            aria-pressed={filters.hideNotInterested}
+            onClick={() => setFilters({ ...filters, hideNotInterested: !filters.hideNotInterested })}
+          >
+            <span aria-hidden="true">{filters.hideNotInterested ? '☑' : '☐'}</span>
+            {' '}Hide if not interested
+          </button>
         </div>
       </div>
 
       <div style={{ display: 'grid', gap: '0.75rem' }}>
         {sorted.length === 0 && <div className="card">No movies match these filters.</div>}
         {sorted.map((m) => (
-          <div className="movie-row" key={m.id}>
+          <div
+            id={`maybe-movie-${m.id}`}
+            className={`movie-row${highlightId === m.id ? ' highlighted' : ''}`}
+            key={m.id}
+          >
             <div className="vote">
               <button
                 className={`up ${m._myVote === 'up' ? 'active' : ''}`}
@@ -279,6 +326,8 @@ export default function MaybeMovie() {
           onSave={async (ids) => { await setAttendees(active.id, ids); setEditingAttendees(false); }}
         />
       )}
+
+      <MaybeHistory canDelete={!!user?.is_admin} />
     </div>
   );
 }
@@ -313,6 +362,212 @@ function EditAttendeesModal({ allUsers, attendees, onClose, onSave }) {
             Save
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Past Maybe Movie sessions — both completed (with a watched movie) and
+// cancelled. Visible to all signed-in users. Admins get a delete button per
+// row to wipe a session from history.
+function MaybeHistory({ canDelete }) {
+  const [rows, setRows] = useState(null);
+  const [err, setErr] = useState(null);
+
+  async function load() {
+    try { setRows(await api.get('/api/maybe/history')); }
+    catch (e) { setErr(e.message); }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function remove(id) {
+    if (!confirm('Delete this session from history?')) return;
+    try {
+      await api.del(`/api/maybe/${id}`);
+      await load();
+    } catch (e) { setErr(e.message); }
+  }
+
+  if (err) return <div className="card error" style={{ marginTop: '1.5rem' }}>{err}</div>;
+  if (!rows) return null;
+
+  return (
+    <section className="card" style={{ marginTop: '1.5rem' }}>
+      <h2 style={{ marginTop: 0 }}>Past Maybe Movies</h2>
+      {rows.length === 0 ? (
+        <p style={{ color: 'var(--muted)', margin: 0 }}>No history yet.</p>
+      ) : (
+        <ul className="maybe-history">
+          {rows.map((s) => (
+            <li key={s.id}>
+              <div className="maybe-history-head">
+                <span className="maybe-history-date">
+                  {new Date(s.ended_at).toLocaleDateString(undefined, {
+                    year: 'numeric', month: 'short', day: 'numeric',
+                  })}
+                </span>
+                {s.cancelled ? (
+                  <span className="pill bad">Cancelled</span>
+                ) : (
+                  <Link to={`/movies/${s.watched_movie_id}`} className="maybe-history-movie">
+                    {s.watched_movie_title || 'Untitled movie'}
+                  </Link>
+                )}
+                {canDelete && (
+                  <button className="maybe-history-delete" onClick={() => remove(s.id)} aria-label="Delete">×</button>
+                )}
+              </div>
+              <div className="maybe-history-meta">
+                {s.attendees.length === 0 ? 'No attendees' : (
+                  <>
+                    with {s.attendees.map((a, i) => (
+                      <span key={a.user_id}>
+                        {i > 0 ? ', ' : ''}
+                        <Link to={`/users/${a.user_id}`}>{a.name}</Link>
+                      </span>
+                    ))}
+                  </>
+                )}
+                {s.started_by_name && ` · started by ${s.started_by_name}`}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+// "Mental stability" exit interview shown after the user confirms the
+// "Perhaps not" cancel. Answers are intentionally not persisted — the popup
+// is a wink, not data collection.
+const MOOD_OPTIONS = [
+  ['great',     '😄'],
+  ['fine',      '🙂'],
+  ['meh',       '😐'],
+  ['low',       '😔'],
+  ['anxious',   '😰'],
+  ['angry',     '😠'],
+  ['hopeless',  '😞'],
+  ['euphoric',  '🤩'],
+  ['numb',      '😶'],
+];
+
+function PerhapsNotPopup({ onClose, onSubmit }) {
+  const [withdrawing, setWithdrawing] = useState(null);
+  const [moods, setMoods] = useState(new Set());
+  const [racing, setRacing] = useState(null);
+  const [impulsive, setImpulsive] = useState(null);
+  const [drinks, setDrinks] = useState('');
+  const [period, setPeriod] = useState('');
+
+  function toggleMood(key) {
+    setMoods((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal exit-interview" onClick={(e) => e.stopPropagation()}>
+        <h2 style={{ marginTop: 0 }}>Quick check-in</h2>
+        <p style={{ color: 'var(--muted)' }}>
+          We would like to ask a few questions to understand why you chose to
+          not watch a movie on maybe movie mondays. Please answer to the best
+          of your ability.
+        </p>
+
+        <YesNoQuestion
+          label="Have you found yourself withdrawing from friends, family, or activities you used to enjoy?"
+          value={withdrawing}
+          onChange={setWithdrawing}
+        />
+
+        <div className="exit-question">
+          <div className="exit-question-label">
+            How would you describe your general mood over the past two weeks?{' '}
+            <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(select multiple)</span>
+          </div>
+          <div className="exit-mood">
+            {MOOD_OPTIONS.map(([key, emoji]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={moods.has(key)}
+                className={`rating-pill${moods.has(key) ? ' active' : ''}`}
+                onClick={() => toggleMood(key)}
+              >{emoji}</button>
+            ))}
+          </div>
+        </div>
+
+        <YesNoQuestion
+          label="Have you been experiencing racing thoughts, or thoughts that you can't seem to turn off?"
+          value={racing}
+          onChange={setRacing}
+        />
+
+        <YesNoQuestion
+          label="Do you ever feel a sudden, uncontrollable urge to act impulsively or recklessly?"
+          value={impulsive}
+          onChange={setImpulsive}
+        />
+
+        <div className="exit-question">
+          <label className="exit-question-label" htmlFor="exit-drinks">
+            How many drinks have you had in the past hour?
+          </label>
+          <input
+            id="exit-drinks"
+            type="number"
+            min={0}
+            value={drinks}
+            onChange={(e) => setDrinks(e.target.value)}
+            style={{ width: 120 }}
+          />
+        </div>
+
+        <div className="exit-question">
+          <label className="exit-question-label" htmlFor="exit-period">
+            When was your last period?
+          </label>
+          <input
+            id="exit-period"
+            type="date"
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            style={{ width: 180 }}
+          />
+        </div>
+
+        <div className="row" style={{ marginTop: '1rem', justifyContent: 'flex-end', gap: '0.5rem' }}>
+          <button onClick={onClose}>Cancel</button>
+          <button className="primary" onClick={onSubmit}>Submit</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function YesNoQuestion({ label, value, onChange }) {
+  return (
+    <div className="exit-question">
+      <div className="exit-question-label">{label}</div>
+      <div className="row" style={{ gap: '0.5rem' }}>
+        <button
+          type="button"
+          aria-pressed={value === 'yes'}
+          className={`rating-pill${value === 'yes' ? ' active' : ''}`}
+          onClick={() => onChange('yes')}
+        >Yes</button>
+        <button
+          type="button"
+          aria-pressed={value === 'no'}
+          className={`rating-pill${value === 'no' ? ' active' : ''}`}
+          onClick={() => onChange('no')}
+        >No</button>
       </div>
     </div>
   );

@@ -4,11 +4,13 @@ import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import RatingPicker, {
   RATING_LABEL,
+  RATING_EMOJI,
   INTEREST_LABEL,
   SEEN_OPTIONS,
   INTEREST_OPTIONS,
 } from '../components/RatingPicker.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
+import { pickPairing, typeLabel, typeEmoji } from '../pairing.js';
 
 function fmtDate(s) {
   if (!s) return '';
@@ -139,6 +141,9 @@ export default function MovieDetail() {
           {movie.notes && (
             <div className="notes-block"><strong>Notes:</strong> {movie.notes}</div>
           )}
+          {movie.added_by_name && (
+            <div className="meta" style={{ marginTop: '0.4rem' }}>added by {movie.added_by_name}</div>
+          )}
           {movie.overview && (
             <p style={{ color: 'var(--muted)', lineHeight: 1.5 }}>{movie.overview}</p>
           )}
@@ -158,6 +163,8 @@ export default function MovieDetail() {
           </div>
         </div>
       </div>
+
+      <PairingCard movie={movie} />
 
       {user ? (
         <>
@@ -197,17 +204,25 @@ export default function MovieDetail() {
                     <th>Seen?</th>
                     <th>Interest</th>
                     <th>Rating</th>
-                    <th>Updated</th>
                   </tr>
                 </thead>
                 <tbody>
                   {orderedUsers.map((u) => (
                     <tr key={u.user_id} className={u.status === null ? 'no-response' : ''}>
-                      <td>{u.name}{u.user_id === user.id ? ' (you)' : ''}</td>
+                      <td>
+                        <Link to={`/users/${u.user_id}`}>
+                          {u.name}{u.user_id === user.id ? ' (you)' : ''}
+                        </Link>
+                      </td>
                       <td>{statusLabel(u.status)}</td>
                       <td>{INTEREST_LABEL[u.interest] || '—'}</td>
-                      <td>{u.status === 'seen' && u.rating ? RATING_LABEL[u.rating] : '—'}</td>
-                      <td>{fmtDate(u.updated_at) || '—'}</td>
+                      <td>
+                        {u.status === 'seen' && u.rating ? (
+                          <span className="rating-emoji" aria-label={RATING_LABEL[u.rating]} title={RATING_LABEL[u.rating]}>
+                            {RATING_EMOJI[u.rating]}
+                          </span>
+                        ) : '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -229,7 +244,161 @@ export default function MovieDetail() {
           </p>
         </section>
       )}
+
+      <Comments movie={movie} reload={load} />
     </div>
+  );
+}
+
+function PairingCard({ movie }) {
+  const p = pickPairing(movie);
+  return (
+    <section className="card pairing-card" style={{ marginTop: '1rem' }}>
+      <div className="pairing-emoji" aria-hidden="true">{typeEmoji(p.type)}</div>
+      <div className="pairing-text">
+        <div className="pairing-eyebrow">Tonight's pairing — {typeLabel(p.type)}</div>
+        <div className="pairing-name">{p.name}</div>
+        <div className="pairing-why">{p.why}</div>
+      </div>
+    </section>
+  );
+}
+
+function Comments({ movie, reload }) {
+  const { user } = useAuth();
+  const [body, setBody] = useState('');
+  const [posting, setPosting] = useState(false);
+  const [err, setErr] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editBody, setEditBody] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  async function post(e) {
+    e.preventDefault();
+    const trimmed = body.trim();
+    if (!trimmed) return;
+    setPosting(true); setErr(null);
+    try {
+      await api.post(`/api/movies/${movie.id}/comments`, { body: trimmed });
+      setBody('');
+      await reload();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setPosting(false);
+    }
+  }
+
+  function startEdit(c) { setEditingId(c.id); setEditBody(c.body); setErr(null); }
+  function cancelEdit() { setEditingId(null); setEditBody(''); }
+
+  async function saveEdit(c) {
+    const trimmed = editBody.trim();
+    if (!trimmed) return;
+    setSavingEdit(true); setErr(null);
+    try {
+      await api.patch(`/api/movies/${movie.id}/comments/${c.id}`, { body: trimmed });
+      cancelEdit();
+      await reload();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function remove(c) {
+    if (!confirm('Delete this comment?')) return;
+    setErr(null);
+    try {
+      await api.del(`/api/movies/${movie.id}/comments/${c.id}`);
+      await reload();
+    } catch (e) {
+      setErr(e.message);
+    }
+  }
+
+  const comments = movie.comments || [];
+
+  return (
+    <section className="card" style={{ marginTop: '1rem' }}>
+      <h2 style={{ marginTop: 0 }}>Comments</h2>
+      {comments.length === 0 ? (
+        <p style={{ color: 'var(--muted)', margin: '0 0 0.75rem 0' }}>
+          No comments yet.{user ? ' Be the first.' : ''}
+        </p>
+      ) : (
+        <ul className="comment-list">
+          {comments.map((c) => {
+            const mine = user && c.user_id === user.id;
+            const canDelete = mine || user?.is_admin;
+            const edited = c.updated_at && c.created_at
+              && new Date(c.updated_at).getTime() - new Date(c.created_at).getTime() > 1500;
+            return (
+              <li key={c.id} className="comment">
+                <div className="comment-head">
+                  <Link to={`/users/${c.user_id}`} className="comment-author">
+                    {c.name}{mine ? ' (you)' : ''}
+                  </Link>
+                  <span className="comment-date">
+                    {fmtDate(c.created_at)}{edited ? ' · edited' : ''}
+                  </span>
+                </div>
+                {editingId === c.id ? (
+                  <>
+                    <textarea
+                      rows={3}
+                      value={editBody}
+                      onChange={(e) => setEditBody(e.target.value)}
+                      style={{ width: '100%' }}
+                    />
+                    <div className="row" style={{ gap: '0.5rem', marginTop: '0.4rem', justifyContent: 'flex-end' }}>
+                      <button onClick={cancelEdit} disabled={savingEdit}>Cancel</button>
+                      <button className="primary" onClick={() => saveEdit(c)} disabled={savingEdit || !editBody.trim()}>
+                        {savingEdit ? 'Saving…' : 'Save'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="comment-body">{c.body}</div>
+                    {(mine || canDelete) && (
+                      <div className="comment-actions">
+                        {mine && <button onClick={() => startEdit(c)}>Edit</button>}
+                        {canDelete && <button onClick={() => remove(c)}>Delete</button>}
+                      </div>
+                    )}
+                  </>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {user ? (
+        <form onSubmit={post} style={{ marginTop: '0.5rem' }}>
+          <textarea
+            rows={3}
+            placeholder="Share what you thought of this movie…"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            style={{ width: '100%' }}
+          />
+          <div className="row" style={{ marginTop: '0.4rem', justifyContent: 'flex-end' }}>
+            <button className="primary" type="submit" disabled={posting || !body.trim()}>
+              {posting ? 'Posting…' : 'Post comment'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <p style={{ color: 'var(--muted)', margin: 0 }}>
+          <Link to="/login">Sign in</Link> to leave a comment.
+        </p>
+      )}
+
+      {err && <div className="error" style={{ marginTop: '0.5rem' }}>{err}</div>}
+    </section>
   );
 }
 
@@ -261,13 +430,20 @@ function WatchHistory({ movie }) {
 function AdminMovieEditor({ movie, reload }) {
   const [notes, setNotes] = useState(movie.notes || '');
   const [savingNotes, setSavingNotes] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [addedBy, setAddedBy] = useState(movie.added_by_user_id ?? '');
+  const [savingAddedBy, setSavingAddedBy] = useState(false);
   const [newDate, setNewDate] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [adding, setAdding] = useState(false);
   const [err, setErr] = useState(null);
 
-  // If the parent reloads with a different value, sync the textarea.
+  // If the parent reloads with a different value, sync the controls.
   useEffect(() => { setNotes(movie.notes || ''); }, [movie.id, movie.notes]);
+  useEffect(() => { setAddedBy(movie.added_by_user_id ?? ''); }, [movie.id, movie.added_by_user_id]);
+  useEffect(() => {
+    api.get('/api/auth/users').then(setUsers).catch(() => setUsers([]));
+  }, []);
 
   async function saveNotes() {
     setSavingNotes(true); setErr(null);
@@ -278,6 +454,20 @@ function AdminMovieEditor({ movie, reload }) {
       setErr(e.message);
     } finally {
       setSavingNotes(false);
+    }
+  }
+
+  async function saveAddedBy() {
+    setSavingAddedBy(true); setErr(null);
+    try {
+      await api.patch(`/api/admin/movies/${movie.id}`, {
+        added_by_user_id: addedBy === '' ? null : Number(addedBy),
+      });
+      await reload();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSavingAddedBy(false);
     }
   }
 
@@ -328,6 +518,29 @@ function AdminMovieEditor({ movie, reload }) {
         >
           {savingNotes ? 'Saving…' : 'Save notes'}
         </button>
+      </div>
+
+      <div className="field">
+        <label>Added by</label>
+        <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+          <select
+            value={addedBy}
+            onChange={(e) => setAddedBy(e.target.value)}
+            style={{ flex: 1, minWidth: 200 }}
+          >
+            <option value="">— unset —</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+          <button
+            className="primary"
+            onClick={saveAddedBy}
+            disabled={savingAddedBy || String(addedBy) === String(movie.added_by_user_id ?? '')}
+          >
+            {savingAddedBy ? 'Saving…' : 'Save'}
+          </button>
+        </div>
       </div>
 
       <div className="field">

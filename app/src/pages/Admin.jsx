@@ -112,7 +112,7 @@ export default function Admin() {
             <tr>
               <th>Name</th>
               <th>Email</th>
-              <th>Movies</th>
+              <th>Movies rated</th>
               <th>Last seen</th>
               <th>Joined</th>
               <th>Admin</th>
@@ -128,7 +128,7 @@ export default function Admin() {
                 <tr key={u.id} className={u.hidden ? 'admin-row-hidden' : ''}>
                   <td>{u.name}{isMe && <span style={{ color: 'var(--muted)' }}> (you)</span>}</td>
                   <td>{u.email}</td>
-                  <td>{u.movie_count}</td>
+                  <td>{u.movies_rated}</td>
                   <td>{formatDate(u.last_seen_at)}</td>
                   <td>{formatDate(u.created_at)}</td>
                   <td>

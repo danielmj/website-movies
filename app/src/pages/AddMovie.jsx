@@ -149,6 +149,25 @@ export default function AddMovie() {
 
   return (
     <div className="container">
+      {preview && (
+        <div style={{ marginBottom: '0.75rem' }}>
+          <button
+            type="button"
+            onClick={() => { setPreview(null); setErr(null); }}
+            disabled={adding}
+            style={{
+              color: 'var(--muted)',
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              font: 'inherit',
+            }}
+          >
+            ← Back
+          </button>
+        </div>
+      )}
       <h1 style={{ marginTop: 0, marginBottom: '1rem' }}>Add a movie</h1>
 
       {!preview && !previewLoading && (

@@ -179,7 +179,13 @@ router.get('/', optionalAuth, async (req, res, next) => {
 router.get('/:id', optionalAuth, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const [rows] = await pool.query('SELECT * FROM movies WHERE id = ?', [id]);
+    const [rows] = await pool.query(
+      `SELECT m.*, u.name AS added_by_name
+       FROM movies m
+       LEFT JOIN users u ON u.id = m.added_by_user_id
+       WHERE m.id = ?`,
+      [id],
+    );
     if (!rows.length) return res.status(404).json({ error: 'not found' });
     const [genres] = await pool.query('SELECT genre FROM movie_genres WHERE movie_id = ?', [id]);
 
@@ -230,7 +236,74 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
       result.watch_history = watch_history;
     }
 
+    // Comments are public (visible to anonymous viewers); posting/editing
+    // is auth-gated below.
+    const [comments] = await pool.query(
+      `SELECT c.id, c.user_id, c.body, c.created_at, c.updated_at, u.name
+       FROM movie_comments c
+       JOIN users u ON u.id = c.user_id
+       WHERE c.movie_id = ?
+       ORDER BY c.created_at`,
+      [id],
+    );
+    result.comments = comments;
+
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:id/comments', requireAuth, async (req, res, next) => {
+  try {
+    const movieId = Number(req.params.id);
+    const body = String(req.body?.body ?? '').trim();
+    if (!movieId) return res.status(400).json({ error: 'invalid movie id' });
+    if (!body) return res.status(400).json({ error: 'body is required' });
+    if (body.length > 4000) return res.status(400).json({ error: 'body too long (max 4000 chars)' });
+    const [m] = await pool.query('SELECT id FROM movies WHERE id = ?', [movieId]);
+    if (!m.length) return res.status(404).json({ error: 'movie not found' });
+    const [r] = await pool.query(
+      'INSERT INTO movie_comments (movie_id, user_id, body) VALUES (?, ?, ?)',
+      [movieId, req.session.userId, body],
+    );
+    res.json({ id: r.insertId });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/:id/comments/:commentId', requireAuth, async (req, res, next) => {
+  try {
+    const commentId = Number(req.params.commentId);
+    const body = String(req.body?.body ?? '').trim();
+    if (!body) return res.status(400).json({ error: 'body is required' });
+    if (body.length > 4000) return res.status(400).json({ error: 'body too long (max 4000 chars)' });
+    // Author-only edit. Admin still has DELETE; editing someone else's words
+    // is a different bar that we don't grant here.
+    const [r] = await pool.query(
+      'UPDATE movie_comments SET body = ? WHERE id = ? AND user_id = ?',
+      [body, commentId, req.session.userId],
+    );
+    if (!r.affectedRows) return res.status(404).json({ error: 'not found or not yours' });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/:id/comments/:commentId', requireAuth, async (req, res, next) => {
+  try {
+    const commentId = Number(req.params.commentId);
+    const [rows] = await pool.query('SELECT user_id FROM movie_comments WHERE id = ?', [commentId]);
+    if (!rows.length) return res.status(404).json({ error: 'not found' });
+    const [me] = await pool.query('SELECT is_admin FROM users WHERE id = ?', [req.session.userId]);
+    const isAdmin = !!me[0]?.is_admin;
+    if (rows[0].user_id !== req.session.userId && !isAdmin) {
+      return res.status(403).json({ error: 'not yours' });
+    }
+    await pool.query('DELETE FROM movie_comments WHERE id = ?', [commentId]);
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }

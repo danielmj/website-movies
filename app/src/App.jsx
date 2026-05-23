@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './auth.jsx';
 import { MaybeProvider } from './maybe.jsx';
 import Header from './components/Header.jsx';
+import Footer from './components/Footer.jsx';
 import MaybeBanner from './components/MaybeBanner.jsx';
 import ImpersonationBanner from './components/ImpersonationBanner.jsx';
 import Login from './pages/Login.jsx';
@@ -14,6 +15,9 @@ import Profile from './pages/Profile.jsx';
 import UserProfile from './pages/UserProfile.jsx';
 import Admin from './pages/Admin.jsx';
 import ImportFormats from './pages/ImportFormats.jsx';
+import Careers from './pages/Careers.jsx';
+import Faq from './pages/Faq.jsx';
+import WhatsNew from './pages/WhatsNew.jsx';
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -57,8 +61,12 @@ export default function App() {
         <Route path="/users/:id" element={<Protected><UserProfile /></Protected>} />
         <Route path="/admin" element={<AdminOnly><Admin /></AdminOnly>} />
         <Route path="/admin/import-formats" element={<AdminOnly><ImportFormats /></AdminOnly>} />
+        <Route path="/careers" element={<Careers />} />
+        <Route path="/faq" element={<Faq />} />
+        <Route path="/whats-new" element={<WhatsNew />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Footer />
     </MaybeProvider>
   );
 }

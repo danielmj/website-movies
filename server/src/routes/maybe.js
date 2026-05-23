@@ -1,6 +1,6 @@
 const express = require('express');
 const pool = require('../db');
-const { requireAuth } = require('../auth');
+const { requireAuth, requireAdmin } = require('../auth');
 
 const router = express.Router();
 
@@ -39,6 +39,72 @@ router.get('/active', requireAuth, async (req, res, next) => {
     );
     if (!rows.length) return res.json(null);
     res.json(await loadSession(rows[0].id));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Most recent ended session that the current user attended, where a movie
+// was actually watched and the user hasn't dismissed the rating prompt yet.
+// Powers the home-page banner that nudges attendees to (re)rate the movie.
+// Returns null if no eligible session — the banner stays hidden.
+//
+// Defined before GET /:id below so the literal path doesn't collide with
+// the :id wildcard.
+router.get('/rating-prompt', requireAuth, async (req, res, next) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT s.id AS session_id, s.watched_movie_id AS movie_id,
+              m.title AS movie_title, s.ended_at
+       FROM maybe_attendees a
+       JOIN maybe_sessions s ON s.id = a.session_id
+       JOIN movies m         ON m.id = s.watched_movie_id
+       WHERE a.user_id = ?
+         AND a.rating_prompt_dismissed_at IS NULL
+         AND s.watched_movie_id IS NOT NULL
+         AND s.ended_at IS NOT NULL
+       ORDER BY s.ended_at DESC
+       LIMIT 1`,
+      [req.session.userId],
+    );
+    res.json(rows[0] || null);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Past Maybe Movie sessions — anything that's been ended (cancelled or
+// concluded with a watched movie). Includes attendees + watched-movie
+// title + cancelled flag so the UI can render a single combined list.
+//
+// Also defined before GET /:id so the literal /history path takes
+// precedence over the :id wildcard.
+router.get('/history', requireAuth, async (req, res, next) => {
+  try {
+    const [sessions] = await pool.query(
+      `SELECT s.id, s.started_at, s.ended_at, s.watched_movie_id,
+              m.title AS watched_movie_title,
+              u.name  AS started_by_name
+       FROM maybe_sessions s
+       LEFT JOIN movies m ON m.id = s.watched_movie_id
+       LEFT JOIN users  u ON u.id = s.started_by_user_id
+       WHERE s.ended_at IS NOT NULL
+       ORDER BY s.ended_at DESC
+       LIMIT 200`,
+    );
+    if (!sessions.length) return res.json([]);
+    const ids = sessions.map((s) => s.id);
+    const [att] = await pool.query(
+      `SELECT a.session_id, a.user_id, u.name
+       FROM maybe_attendees a
+       JOIN users u ON u.id = a.user_id
+       WHERE a.session_id IN (?)
+       ORDER BY u.name`,
+      [ids],
+    );
+    const byId = new Map(sessions.map((s) => [s.id, { ...s, cancelled: !s.watched_movie_id, attendees: [] }]));
+    for (const a of att) byId.get(a.session_id)?.attendees.push({ user_id: a.user_id, name: a.name });
+    res.json([...byId.values()]);
   } catch (err) {
     next(err);
   }
@@ -167,6 +233,19 @@ router.post('/:id/watched', requireAuth, async (req, res, next) => {
         [a.user_id, movieId],
       );
     }
+    // Auto-dismiss any older still-pending rating prompts for these
+    // attendees — attending+watching a new session supersedes the previous
+    // nudge, so they only ever see one prompt at a time.
+    if (attendees.length) {
+      const userIds = attendees.map((a) => a.user_id);
+      await conn.query(
+        `UPDATE maybe_attendees SET rating_prompt_dismissed_at = CURRENT_TIMESTAMP
+         WHERE rating_prompt_dismissed_at IS NULL
+           AND session_id <> ?
+           AND user_id IN (?)`,
+        [sessionId, userIds],
+      );
+    }
     await conn.query(
       'UPDATE maybe_sessions SET active = FALSE, ended_at = CURRENT_TIMESTAMP, watched_movie_id = ? WHERE id = ?',
       [movieId, sessionId],
@@ -187,6 +266,32 @@ router.post('/:id/cancel', requireAuth, async (req, res, next) => {
       'UPDATE maybe_sessions SET active = FALSE, ended_at = CURRENT_TIMESTAMP WHERE id = ?',
       [Number(req.params.id)],
     );
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:id/dismiss-prompt', requireAuth, async (req, res, next) => {
+  try {
+    await pool.query(
+      `UPDATE maybe_attendees SET rating_prompt_dismissed_at = CURRENT_TIMESTAMP
+       WHERE session_id = ? AND user_id = ?`,
+      [Number(req.params.id), req.session.userId],
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Admin-only: wipe a session from the history view. Cascades take care of
+// attendees + votes via the FK ON DELETE CASCADE.
+router.delete('/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const [r] = await pool.query('DELETE FROM maybe_sessions WHERE id = ?', [id]);
+    if (!r.affectedRows) return res.status(404).json({ error: 'not found' });
     res.json({ ok: true });
   } catch (err) {
     next(err);

@@ -99,3 +99,12 @@ bechdel.seedFromJson()
   .then(() => bechdel.syncMovies())
   .then((n) => { if (n) console.log(`[bechdel] synced ${n} movies from bechdel_movies`); })
   .catch((err) => console.error('[bechdel] startup sync failed:', err.message));
+
+// Pull bechdeltest.com's RSS feed once a week to pick up newly-rated
+// movies. runIfStale() short-circuits if the last attempt was less than a
+// week ago, so re-running on every boot / 24h tick is safe.
+const bechdelRss = require('./services/bechdelRss');
+bechdelRss.runIfStale().catch((err) => console.error('[bechdel-rss] boot run failed:', err.message));
+setInterval(() => {
+  bechdelRss.runIfStale().catch((err) => console.error('[bechdel-rss] scheduled run failed:', err.message));
+}, 24 * 60 * 60 * 1000).unref();

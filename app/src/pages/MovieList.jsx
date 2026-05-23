@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import MovieCard from '../components/MovieCard.jsx';
 import RatingControls from '../components/RatingControls.jsx';
+import RatingPromptBanner from '../components/RatingPromptBanner.jsx';
 
 const VIEW_KEY = 'mmm.movieListView';
 
@@ -35,6 +36,23 @@ export default function MovieList() {
   }
   useEffect(() => { load(); }, []);
 
+  // Save scroll position when navigating away (e.g. into a movie detail
+  // page) and restore it once movies have loaded on return. The browser's
+  // built-in scroll restoration runs before our async fetch resolves, so we
+  // do it manually after the list renders.
+  useEffect(() => {
+    return () => {
+      sessionStorage.setItem('movieListScroll', String(window.scrollY));
+    };
+  }, []);
+  useEffect(() => {
+    if (!movies) return;
+    const saved = sessionStorage.getItem('movieListScroll');
+    if (saved) {
+      window.scrollTo({ top: Number(saved), behavior: 'instant' });
+    }
+  }, [movies !== null]);
+
   function startAdd(e) {
     e.preventDefault();
     const trimmed = q.trim();
@@ -47,6 +65,7 @@ export default function MovieList() {
 
   return (
     <div className="container">
+      {user && <RatingPromptBanner />}
       <div className="spread" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h1 style={{ margin: 0 }}>Movies</h1>
         <div className="row" style={{ gap: '0.6rem', alignItems: 'center' }}>

@@ -60,11 +60,17 @@ export default function StartMaybeModal({ onClose }) {
           ))}
         </div>
         {error && <div className="error">{error}</div>}
-        <div className="row" style={{ justifyContent: 'flex-end' }}>
+        <div className="row" style={{ justifyContent: 'space-between' }}>
           <button onClick={onClose}>Cancel</button>
-          <button className="primary" disabled={busy || selected.size === 0} onClick={go}>
-            Start maybe movie
-          </button>
+          <div className="row">
+            <button
+              type="button"
+              onClick={() => { onClose(); navigate('/maybe'); }}
+            >History</button>
+            <button className="primary" disabled={busy || selected.size === 0} onClick={go}>
+              Start maybe movie
+            </button>
+          </div>
         </div>
       </div>
     </div>

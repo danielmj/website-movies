@@ -15,7 +15,8 @@ router.get('/users', requireAdmin, async (req, res, next) => {
   try {
     const [rows] = await pool.query(`
       SELECT u.id, u.name, u.email, u.is_admin, u.hidden, u.last_seen_at, u.created_at,
-        (SELECT COUNT(*) FROM user_movies WHERE user_id = u.id) AS movie_count
+        (SELECT COUNT(*) FROM user_movies
+          WHERE user_id = u.id AND status = 'seen' AND rating IS NOT NULL) AS movies_rated
       FROM users u
       ORDER BY (u.last_seen_at IS NULL), u.last_seen_at DESC, u.created_at DESC
     `);
