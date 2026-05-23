@@ -391,7 +391,7 @@ function PairingCard({ movie }) {
         onClick={() => { setOpen(true); setShowDetails(false); }}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); setShowDetails(false); } }}
       >
-        <div className="pairing-emoji" aria-hidden="true">{typeEmoji(p.type)}</div>
+        <div className="pairing-emoji" aria-hidden="true">{p.glass || typeEmoji(p.type)}</div>
         <div className="pairing-text">
           <div className="pairing-eyebrow">Tonight's pairing — {typeLabel(p.type)}</div>
           <div className="pairing-name">{p.name}</div>

@@ -235,6 +235,7 @@ export function pickPairing(movie) {
 
   return {
     type:    winner.drink.type,
+    glass:   pourEmoji(winner.drink),
     name:    winner.drink.name,
     why:     formatWhy(winner.matches, freq),
     matches: winner.matches,
@@ -270,11 +271,72 @@ const TYPE_LABEL = {
   wine:     'Wine',
   shot:     'Shot',
 };
+// Default emoji per type — used as a fallback when a drink doesn't have a
+// more specific glass shape mapped below.
 const TYPE_EMOJI = {
   cocktail: '🍸',
   beer:     '🍺',
   wine:     '🍷',
   shot:     '🥃',
 };
+
+// Per-drink glass shape, picked to resemble how the drink is actually
+// served. Anything not listed falls back to TYPE_EMOJI for its type.
+//   🍸 V-shaped cocktail / coupe
+//   🥃 rocks tumbler / shot glass
+//   🥂 sparkling flute (fizzy / brunch / champagne)
+//   🍹 tropical / highball with garnish
+//   🍷 still wine
+//   🍺 beer mug
+const GLASS_FOR_DRINK = {
+  // Stirred / spirit-forward cocktails → rocks
+  'Old Fashioned':       '🥃',
+  'Negroni':             '🥃',
+  'Negroni Sbagliato':   '🥃',
+  'Boulevardier':        '🥃',
+  'Whiskey Sour':        '🥃',
+  'Whiskey Smash':       '🥃',
+  'Mezcal Negroni':      '🥃',
+  'Smoky Old Fashioned': '🥃',
+  'Vieux Carré':         '🥃',
+  'Gin & Tonic':         '🥃',
+  'Whiskey Highball':    '🥃',
+  // Up-style cocktails → coupe / martini
+  'Dry Martini':           '🍸',
+  'Vesper':                '🍸',
+  'Manhattan':             '🍸',
+  'Black Manhattan':       '🍸',
+  'Sidecar':               '🍸',
+  'Aviation':              '🍸',
+  'Cosmopolitan':          '🍸',
+  'Corpse Reviver No. 2':  '🍸',
+  'Last Word':             '🍸',
+  'Blood and Sand':        '🍸',
+  'Lavender Gin Fizz':     '🍸',
+  // Sparkling / brunch → flute
+  'Aperol Spritz':         '🥂',
+  'French 75':             '🥂',
+  'Mimosa':                '🥂',
+  'Bellini':               '🥂',
+  'Hugo Spritz':           '🥂',
+  // Tropical / highball with garnish
+  'Margarita':             '🍹',
+  'Smoked Margarita':      '🍹',
+  'Tequila Paloma':        '🍹',
+  'Mai Tai':               '🍹',
+  'Tequila Sunrise':       '🍹',
+  'Dark and Stormy':       '🍹',
+  // Sparkling wines → flute
+  'Brut Rosé':             '🥂',
+  'Champagne':             '🥂',
+  'Demi-sec Champagne':    '🥂',
+  'Prosecco':              '🥂',
+  'Sparkling Vouvray':     '🥂',
+};
+
+function pourEmoji(drink) {
+  return GLASS_FOR_DRINK[drink.name] || TYPE_EMOJI[drink.type] || '🥂';
+}
+
 export function typeLabel(t) { return TYPE_LABEL[t] || t; }
 export function typeEmoji(t) { return TYPE_EMOJI[t] || '🥂'; }
