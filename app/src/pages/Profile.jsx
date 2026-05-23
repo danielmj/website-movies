@@ -18,8 +18,8 @@ export function bucketFor(me) {
   if (!me) return ['no_response'];
   const out = [];
   if (me.status === 'seen') out.push('seen');
-  else if (me.status === 'not_interested' && !me.want_to_see) out.push('not_interested');
-  if (me.want_to_see) out.push('want_to_see');
+  else if (me.interest === 'not_interested') out.push('not_interested');
+  if (me.interest === 'want_to_see') out.push('want_to_see');
   return out.length ? out : ['no_response'];
 }
 

@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
-import RatingPicker, { RATING_LABEL, STATUS_LABEL, STATUSES } from '../components/RatingPicker.jsx';
+import RatingPicker, {
+  RATING_LABEL,
+  INTEREST_LABEL,
+  SEEN_OPTIONS,
+  INTEREST_OPTIONS,
+} from '../components/RatingPicker.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
 
 function fmtDate(s) {
@@ -14,7 +19,9 @@ function fmtDate(s) {
 }
 
 function statusLabel(status) {
-  return status ? STATUS_LABEL[status] : 'No response';
+  if (status === 'seen') return 'Seen it';
+  if (status) return "Haven't seen";
+  return 'No response';
 }
 
 export default function MovieDetail() {
@@ -40,7 +47,7 @@ export default function MovieDetail() {
   const me = user && movie.user_movies
     ? movie.user_movies.find((u) => u.user_id === user.id)
     : null;
-  const wantsToSee = !!me?.want_to_see;
+  const interest = me?.interest || 'indifferent';
   const seenState = me?.status === 'seen' ? 'seen' : me?.status ? 'not_seen' : null;
 
   async function setStatus(status, rating = null) {
@@ -59,23 +66,28 @@ export default function MovieDetail() {
     else await setStatus('not_interested');
   }
 
-  async function toggleWantToSee() {
+  async function setInterest(next) {
     setBusy(true);
     try {
-      await api.put(`/api/ratings/${movie.id}`, { want_to_see: !wantsToSee });
+      await api.put(`/api/ratings/${movie.id}`, { interest: next });
       await load();
     } finally {
       setBusy(false);
     }
   }
 
-  // Sort: responders first (seen, want, not_interested), no-response last.
+  // Sort: people who responded first (seen, then haven't-seen), no-response last.
+  // Within responders, "want to see" bubbles up by interest.
   const orderedUsers = movie.user_movies
     ? [...movie.user_movies].sort((a, b) => {
-        const order = { seen: 0, want_to_see: 1, not_interested: 2 };
-        const ar = a.status === null ? 99 : (order[a.status] ?? 50);
-        const br = b.status === null ? 99 : (order[b.status] ?? 50);
+        const seenOrder = (s) => (s === 'seen' ? 0 : s ? 1 : 99);
+        const ar = seenOrder(a.status);
+        const br = seenOrder(b.status);
         if (ar !== br) return ar - br;
+        const interestOrder = { want_to_see: 0, indifferent: 1, not_interested: 2 };
+        const ai = interestOrder[a.interest] ?? 1;
+        const bi = interestOrder[b.interest] ?? 1;
+        if (ai !== bi) return ai - bi;
         return a.name.localeCompare(b.name);
       })
     : [];
@@ -160,19 +172,15 @@ export default function MovieDetail() {
               <SegmentedControl
                 value={seenState}
                 onChange={setSeenState}
-                options={[['seen', 'Seen it'], ['not_seen', "Haven't seen"]]}
+                options={SEEN_OPTIONS}
                 disabled={busy}
               />
-              <button
-                type="button"
-                className={`want-pill${wantsToSee ? ' active' : ''}`}
-                onClick={toggleWantToSee}
+              <SegmentedControl
+                value={interest}
+                onChange={setInterest}
+                options={INTEREST_OPTIONS}
                 disabled={busy}
-                aria-pressed={wantsToSee}
-              >
-                <span aria-hidden="true">{wantsToSee ? '☑' : '☐'}</span>
-                {' '}Want to see
-              </button>
+              />
               {seenState === 'seen' && (
                 <RatingPicker value={me.rating} onChange={(r) => setStatus('seen', r)} disabled={busy} />
               )}
@@ -186,7 +194,8 @@ export default function MovieDetail() {
                 <thead>
                   <tr>
                     <th>Person</th>
-                    <th>Status</th>
+                    <th>Seen?</th>
+                    <th>Interest</th>
                     <th>Rating</th>
                     <th>Updated</th>
                   </tr>
@@ -196,6 +205,7 @@ export default function MovieDetail() {
                     <tr key={u.user_id} className={u.status === null ? 'no-response' : ''}>
                       <td>{u.name}{u.user_id === user.id ? ' (you)' : ''}</td>
                       <td>{statusLabel(u.status)}</td>
+                      <td>{INTEREST_LABEL[u.interest] || '—'}</td>
                       <td>{u.status === 'seen' && u.rating ? RATING_LABEL[u.rating] : '—'}</td>
                       <td>{fmtDate(u.updated_at) || '—'}</td>
                     </tr>

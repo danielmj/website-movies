@@ -34,14 +34,24 @@ export const RATINGS = [
   ['really_dont_like', 'Hate'],
 ];
 
-export const STATUSES = [
-  ['want_to_see', 'Want to see'],
+// Seen / haven't-seen and interest are now two separate segmented controls.
+// SEEN_OPTIONS drives the binary "have you watched it" prompt; INTEREST_OPTIONS
+// drives "do you want to watch it (again) with the group". They're decoupled
+// so a user who has seen a film can still flag "want to see again".
+export const SEEN_OPTIONS = [
   ['seen', 'Seen it'],
+  ['not_seen', "Haven't seen"],
+];
+
+export const INTEREST_OPTIONS = [
+  ['want_to_see',    'Want to see'],
+  ['indifferent',    'Indifferent'],
   ['not_interested', 'Not interested'],
 ];
 
+export const INTEREST_LABEL = Object.fromEntries(INTEREST_OPTIONS);
+
 export const RATING_LABEL = Object.fromEntries(RATINGS_FULL);
-export const STATUS_LABEL = Object.fromEntries(STATUSES);
 export const POSITIVE_RATINGS = new Set(['high_rec', 'rec']);
 
 export default function RatingPicker({ value, onChange, disabled }) {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { RATING_EMOJI, STATUS_LABEL } from './RatingPicker.jsx';
+import { RATING_EMOJI } from './RatingPicker.jsx';
 import RatingControls from './RatingControls.jsx';
 import { useAuth } from '../auth.jsx';
 
@@ -82,8 +82,12 @@ export default function MovieCard({ movie, onChange }) {
                     {': '}
                     {u.status === 'seen' && u.rating
                       ? <span className="rating-emoji" aria-label={`Rated ${u.rating}`}>{RATING_EMOJI[u.rating]}</span>
-                      : STATUS_LABEL[u.status]}
-                    {u.want_to_see ? <span className="want-mark" title="Wants to see">{' ☑'}</span> : null}
+                      : u.status === 'seen'
+                        ? 'Seen it'
+                        : u.status
+                          ? "Haven't seen"
+                          : 'No response'}
+                    {u.interest === 'want_to_see' ? <span className="want-mark" title="Wants to see">{' ☑'}</span> : null}
                   </li>
                 ))}
               </ul>

@@ -58,9 +58,9 @@ export default function MaybeMovie() {
   const annotated = movies.map((m) => {
     const attendeeUm = m.user_movies.filter((u) => attendeeIds.has(u.user_id));
     const seen = attendeeUm.filter((u) => u.status === 'seen');
-    const want = attendeeUm.filter((u) => u.status === 'want_to_see');
+    const want = attendeeUm.filter((u) => u.interest === 'want_to_see');
     const haventSeenResponses = attendeeUm.filter(
-      (u) => u.status === 'want_to_see' || u.status === 'not_interested',
+      (u) => u.status !== 'seen',
     );
     const noResponseCount = attendeeIds.size - attendeeUm.length;
     const recPositive = seen.filter((u) => POSITIVE_RATINGS.has(u.rating));

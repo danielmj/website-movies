@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
-import RatingPicker, { STATUSES } from '../components/RatingPicker.jsx';
+import RatingPicker, { SEEN_OPTIONS, INTEREST_OPTIONS } from '../components/RatingPicker.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
 
 // Two browse modes: TMDB search-as-you-type (default) and a locally-loaded
@@ -36,7 +36,8 @@ export default function AddMovie() {
   const [preview, setPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
-  const [status, setStatus] = useState('want_to_see');
+  const [seenState, setSeenState] = useState('not_seen');
+  const [interest, setInterest] = useState('want_to_see');
   const [rating, setRating] = useState('rec');
   const [adding, setAdding] = useState(false);
   const [err, setErr] = useState(null);
@@ -130,9 +131,13 @@ export default function AddMovie() {
     setErr(null);
     try {
       const { id } = await api.post('/api/movies', { tmdb_id: preview.tmdb_id });
+      // Map UI-side seen/not_seen back to the persisted status enum
+      // (UI's "Haven't seen" → 'not_interested' on the wire).
+      const status = seenState === 'seen' ? 'seen' : 'not_interested';
       await api.put(`/api/ratings/${id}`, {
         status,
         rating: status === 'seen' ? rating : null,
+        interest,
       });
       navigate(returnTo);
     } catch (e) {
@@ -239,11 +244,16 @@ export default function AddMovie() {
 
           <div className="preview-actions">
             <div className="field">
-              <label>Status</label>
-              <SegmentedControl value={status} onChange={setStatus} options={STATUSES} />
+              <label>Seen it?</label>
+              <SegmentedControl value={seenState} onChange={setSeenState} options={SEEN_OPTIONS} />
             </div>
 
-            {status === 'seen' && (
+            <div className="field">
+              <label>Interest</label>
+              <SegmentedControl value={interest} onChange={setInterest} options={INTEREST_OPTIONS} />
+            </div>
+
+            {seenState === 'seen' && (
               <div className="field">
                 <label>Your rating</label>
                 <RatingPicker value={rating} onChange={setRating} />

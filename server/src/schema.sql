@@ -60,15 +60,16 @@ CREATE TABLE IF NOT EXISTS movie_genres (
 );
 
 -- A user's relationship to a movie. status records whether they've watched
--- it (seen / not_interested — both are explicit responses); want_to_see is
--- an independent flag so a user who has seen a film can still mark "want to
--- see again". rating is only meaningful when status='seen'.
+-- it (seen / not_interested — the UI maps "Haven't seen" to 'not_interested').
+-- interest captures want-to-see-this-with-the-group on its own axis, so a
+-- user who has seen a film can still flag "want to see again". rating is
+-- only meaningful when status='seen'.
 CREATE TABLE IF NOT EXISTS user_movies (
   user_id INT NOT NULL,
   movie_id INT NOT NULL,
   status ENUM('seen','want_to_see','not_interested') NOT NULL,
   rating ENUM('high_rec','rec','neutral','dont_like','really_dont_like') NULL,
-  want_to_see BOOLEAN NOT NULL DEFAULT FALSE,
+  interest ENUM('want_to_see','indifferent','not_interested') NOT NULL DEFAULT 'indifferent',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id, movie_id),

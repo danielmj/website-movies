@@ -370,6 +370,9 @@ input[type=text], input[type=email], input[type=password], input[type=number], i
     border-radius: 6px;
     padding: 0.5rem 0.75rem;
     font-size: 0.85rem;
+    /* In vertical mode each button hugs its own height — undo the
+     * shrink-to-fit flex sizing inherited from .rating-controls below. */
+    flex: 0 0 auto;
   }
 }
 .card-remove {
@@ -681,22 +684,68 @@ a.pill:hover, a.pill-link:hover {
 }
 .want-pill:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* Shared layout for the Seen/Haven't seen + Rating + Want-to-see block.
- * Used inside cards, list items, and the detail page. The slightly bigger
- * gap before .want-pill visually separates "what status are you?" from
- * the optional "+ also want to see" flag. */
+/* Shared layout for the Seen/Haven't-seen + Interest + Rating block.
+ * Used inside cards, list items, and the detail page. The container-type
+ * lets the segmented controls inside shrink-to-fit (rather than wrap) when
+ * the surrounding row gets narrow — see the @container rules below. */
 .rating-controls {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   margin-top: 0.5rem;
   align-items: flex-start;
-}
-.rating-controls .want-pill {
-  margin-top: 0.2rem;
-  margin-bottom: 0.2rem;
+  container-type: inline-size;
+  width: 100%;
 }
 .rating-controls.compact { gap: 0.4rem; margin-top: 0.4rem; }
+
+/* Inside a rating-controls (or AddMovie's preview-actions field), the
+ * segmented pill must shrink rather than wrap so the row stays a single
+ * line on narrow screens. The pill keeps its natural width when there's
+ * room; once it would exceed the container, max-width caps it and the
+ * buttons shrink proportionally. */
+.rating-controls .segmented,
+.preview-actions .field .segmented {
+  flex-wrap: nowrap;
+  max-width: 100%;
+}
+.rating-controls .segmented button,
+.preview-actions .field .segmented button {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Progressive shrink as the surrounding container narrows. The numbers are
+ * tuned so the 3-option Interest pill ("Want to see / Indifferent / Not
+ * interested") stays on a single line all the way down to ~iPhone-SE width. */
+@container (max-width: 360px) {
+  .rating-controls .segmented { padding: 3px; gap: 3px; }
+  .rating-controls .segmented button {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.78rem;
+  }
+}
+@container (max-width: 280px) {
+  .rating-controls .segmented button {
+    padding: 0.25rem 0.35rem;
+    font-size: 0.72rem;
+  }
+}
+@media (max-width: 480px) {
+  .preview-actions .field .segmented { padding: 3px; gap: 3px; }
+  .preview-actions .field .segmented button {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.78rem;
+  }
+}
+@media (max-width: 360px) {
+  .preview-actions .field .segmented button {
+    padding: 0.25rem 0.35rem;
+    font-size: 0.72rem;
+  }
+}
 
 .preview-card {
   background: var(--panel);

@@ -37,6 +37,13 @@ const MIGRATIONS = [
   // user picker on the Maybe Movie attendee modal and from the public users
   // list, but their existing user_movies + ratings stay intact for history.
   `ALTER TABLE users ADD COLUMN hidden BOOLEAN NOT NULL DEFAULT FALSE`,
+  // Interest: 3-state segmented control replacing the old want_to_see boolean.
+  // Backfill: any row with want_to_see=TRUE becomes 'want_to_see'; everything
+  // else stays at the default 'indifferent'. The old boolean column is dropped
+  // once the data is migrated.
+  `ALTER TABLE user_movies ADD COLUMN interest ENUM('want_to_see','indifferent','not_interested') NOT NULL DEFAULT 'indifferent'`,
+  `UPDATE user_movies SET interest = 'want_to_see' WHERE want_to_see = TRUE`,
+  `ALTER TABLE user_movies DROP COLUMN want_to_see`,
 ];
 
 (async () => {
@@ -49,7 +56,16 @@ const MIGRATIONS = [
       try {
         await pool.query(m);
       } catch (err) {
-        if (err.code === 'ER_DUP_FIELDNAME' || err.code === 'ER_DUP_KEYNAME') continue;
+        // ER_DUP_FIELDNAME / ER_DUP_KEYNAME — column/key already added.
+        // ER_BAD_FIELD_ERROR — column referenced by a backfill UPDATE has
+        //   already been dropped on a previous run.
+        // ER_CANT_DROP_FIELD_OR_KEY — column already dropped.
+        if (
+          err.code === 'ER_DUP_FIELDNAME' ||
+          err.code === 'ER_DUP_KEYNAME' ||
+          err.code === 'ER_BAD_FIELD_ERROR' ||
+          err.code === 'ER_CANT_DROP_FIELD_OR_KEY'
+        ) continue;
         throw err;
       }
     }
