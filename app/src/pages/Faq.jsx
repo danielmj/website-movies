@@ -55,12 +55,6 @@ const QA = [
     during the credits of "Marriage Story" specifically.`,
   },
   {
-    q: 'Why do all the buttons shrink on small screens?',
-    a: `Because the design lead has feelings about layout collapse. Take
-    it up with them. They are also the engineering lead. And the user. It
-    is a small group.`,
-  },
-  {
     q: 'Is there an iOS app?',
     a: `No. There is a website. It works on your phone. That is, in a
     legal sense, an app.`,

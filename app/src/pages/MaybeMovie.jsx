@@ -179,21 +179,6 @@ export default function MaybeMovie() {
           </select>
         </div>
         <div className="field">
-          <label>&nbsp;</label>
-          <button
-            type="button"
-            disabled={sorted.length === 0}
-            onClick={() => {
-              if (!sorted.length) return;
-              const pick = sorted[Math.floor(Math.random() * sorted.length)];
-              setHighlightId(pick.id);
-              const el = document.getElementById(`maybe-movie-${pick.id}`);
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              setTimeout(() => setHighlightId((cur) => cur === pick.id ? null : cur), 2200);
-            }}
-          >🎲 Random</button>
-        </div>
-        <div className="field">
           <label>Genre</label>
           <select value={filters.genre} onChange={(e) => setFilters({ ...filters, genre: e.target.value })}>
             <option value="">Any</option>
@@ -217,6 +202,19 @@ export default function MaybeMovie() {
           />
         </div>
         <div className="toolbar-checks">
+          <button
+            type="button"
+            className="random-btn"
+            disabled={sorted.length === 0}
+            onClick={() => {
+              if (!sorted.length) return;
+              const pick = sorted[Math.floor(Math.random() * sorted.length)];
+              setHighlightId(pick.id);
+              const el = document.getElementById(`maybe-movie-${pick.id}`);
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              setTimeout(() => setHighlightId((cur) => cur === pick.id ? null : cur), 2200);
+            }}
+          >🎲 Random</button>
           <button
             type="button"
             className={`want-pill${filters.bechdelOnly ? ' active' : ''}`}
@@ -290,9 +288,9 @@ export default function MaybeMovie() {
                   {m.duration_minutes ? `${m.duration_minutes}m` : '—'}
                   {m.imdb_rating ? ` · ⭐ ${m.imdb_rating}` : ''}
                   {m.bechdel_passes ? (
-                    <> · <span style={{ color: 'var(--good)' }}>Bechdel ✓</span></>
+                    <> · <span style={{ color: 'var(--good)' }}>Bechdel&nbsp;✓</span></>
                   ) : m.bechdel_passes === 0 ? (
-                    <> · <span style={{ color: 'var(--bad)' }}>Bechdel ✗</span></>
+                    <> · <span style={{ color: 'var(--bad)' }}>Bechdel&nbsp;✗</span></>
                   ) : null}
                   {m.genres?.length ? ` · ${m.genres.join(', ')}` : ''}
                 </div>

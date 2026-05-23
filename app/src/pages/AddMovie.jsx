@@ -250,8 +250,8 @@ export default function AddMovie() {
                 {preview.decade && <span>{preview.decade}s</span>}
               </div>
               <div className="pills" style={{ marginTop: '0.5rem' }}>
-                {preview.bechdel_passes === true && <span className="pill good">Bechdel ✓</span>}
-                {preview.bechdel_passes === false && <span className="pill bad">Bechdel ✗</span>}
+                {preview.bechdel_passes === true && <span className="pill good">Bechdel&nbsp;✓</span>}
+                {preview.bechdel_passes === false && <span className="pill bad">Bechdel&nbsp;✗</span>}
                 {preview.bechdel_passes === null && <span className="pill">Bechdel: unknown</span>}
                 {(preview.genres || []).map((g) => (
                   <span key={g} className="pill">{g}</span>

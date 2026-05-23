@@ -163,9 +163,9 @@ function MovieListItem({ movie, onChange }) {
             {movie.duration_minutes ? `${movie.duration_minutes}m` : '—'}
             {movie.imdb_rating ? ` · ⭐ ${movie.imdb_rating}` : ''}
             {movie.bechdel_passes ? (
-              <> · <span style={{ color: 'var(--good)' }}>Bechdel ✓</span></>
+              <> · <span style={{ color: 'var(--good)' }}>Bechdel&nbsp;✓</span></>
             ) : movie.bechdel_passes === 0 ? (
-              <> · <span style={{ color: 'var(--bad)' }}>Bechdel ✗</span></>
+              <> · <span style={{ color: 'var(--bad)' }}>Bechdel&nbsp;✗</span></>
             ) : null}
             {movie.genres?.length ? ` · ${movie.genres.slice(0, 2).join(', ')}` : ''}
           </div>

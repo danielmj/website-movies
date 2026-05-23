@@ -57,9 +57,9 @@ export default function MovieCard({ movie, onChange }) {
         </div>
         <div className="pills">
           {movie.bechdel_passes ? (
-            <span className="pill good">Bechdel ✓</span>
+            <span className="pill good">Bechdel&nbsp;✓</span>
           ) : movie.bechdel_passes === 0 || movie.bechdel_passes === false ? (
-            <span className="pill bad">Bechdel ✗</span>
+            <span className="pill bad">Bechdel&nbsp;✗</span>
           ) : null}
           {(movie.genres || []).slice(0, 2).map((g) => (
             <span key={g} className="pill">{g}</span>
