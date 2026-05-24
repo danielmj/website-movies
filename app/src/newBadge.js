@@ -58,3 +58,17 @@ export function markBadgeViewed(movieId) {
   }
   writeMap(map);
 }
+
+// Admin helpers: inspect and override the stored "viewed on" date for a
+// single movie. Used by the per-movie admin editor so the badge state can
+// be tested or reset without clearing all of localStorage.
+export function getBadgeViewedDate(movieId) {
+  return readMap()[movieId] || null;
+}
+
+export function setBadgeViewedDate(movieId, date) {
+  const map = readMap();
+  if (date) map[movieId] = date;
+  else delete map[movieId];
+  writeMap(map);
+}

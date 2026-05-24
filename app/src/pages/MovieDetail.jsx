@@ -12,7 +12,7 @@ import RatingPicker, {
 import SegmentedControl from '../components/SegmentedControl.jsx';
 import { pickPairing, typeLabel, typeEmoji, DESCRIPTOR_GLOSS } from '../pairing.js';
 import { ExplainPopup } from './Profile.jsx';
-import { isFreshlyAdded, markBadgeViewed } from '../newBadge.js';
+import { isFreshlyAdded, markBadgeViewed, getBadgeViewedDate, setBadgeViewedDate } from '../newBadge.js';
 
 function fmtDate(s) {
   if (!s) return '';
@@ -733,6 +733,50 @@ function AdminMovieEditor({ movie, reload }) {
       </div>
 
       {err && <div className="error">{err}</div>}
+
+      <NewBadgeViewedField movieId={movie.id} />
     </section>
+  );
+}
+
+// Per-browser admin control: inspect and override the date this admin
+// "saw" the NEW badge for this movie. Backs onto localStorage, so it only
+// affects the current browser/profile — that's the whole point of the
+// dismissal state, which is intentionally not stored server-side.
+function NewBadgeViewedField({ movieId }) {
+  const [date, setDate] = useState(() => getBadgeViewedDate(movieId) || '');
+  const stored = getBadgeViewedDate(movieId) || '';
+  const dirty = date !== stored;
+
+  function save() {
+    setBadgeViewedDate(movieId, date || null);
+    // Re-read to refresh the "stored" comparison on next render.
+    setDate(getBadgeViewedDate(movieId) || '');
+  }
+
+  function clear() {
+    setBadgeViewedDate(movieId, null);
+    setDate('');
+  }
+
+  return (
+    <div className="field">
+      <label>NEW badge viewed (this browser only)</label>
+      <div style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '0.3rem' }}>
+        {stored
+          ? `Recorded: ${stored}. Badge hides for you on any later date.`
+          : 'No record — badge will show if the movie is < 7 days old and added by someone else.'}
+      </div>
+      <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          style={{ width: 170 }}
+        />
+        <button className="primary" onClick={save} disabled={!dirty}>Save</button>
+        <button onClick={clear} disabled={!stored}>Clear</button>
+      </div>
+    </div>
   );
 }
