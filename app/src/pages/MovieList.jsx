@@ -5,7 +5,7 @@ import { useAuth } from '../auth.jsx';
 import MovieCard from '../components/MovieCard.jsx';
 import RatingControls from '../components/RatingControls.jsx';
 import RatingPromptBanner from '../components/RatingPromptBanner.jsx';
-import { shouldShowNewBadge } from '../newBadge.js';
+import { isFreshlyAdded, markBadgeViewed, shouldShowNewBadge } from '../newBadge.js';
 
 const VIEW_KEY = 'mmm.movieListView';
 
@@ -38,6 +38,16 @@ export default function MovieList() {
     }
   }
   useEffect(() => { load(); }, []);
+
+  // Seeing the NEW badge in the list counts as "seen" — record today so
+  // the badge drops off for this user once the date changes, without
+  // requiring a click into the detail page.
+  useEffect(() => {
+    if (!movies || !user) return;
+    for (const m of movies) {
+      if (isFreshlyAdded(m, user)) markBadgeViewed(m.id);
+    }
+  }, [movies, user]);
 
   // Pull past Maybe Movie sessions so we can filter out movies that have
   // already been watched as a group. Auth-required endpoint — anonymous
