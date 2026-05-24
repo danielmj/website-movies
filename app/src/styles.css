@@ -1406,8 +1406,9 @@ a.pill:hover, a.pill-link:hover {
 .users-list-email { color: var(--muted); font-size: 0.85rem; }
 
 /* "NEW" chip on movies that were added in the past week by someone other
- * than the current user. Solid accent fill (no border) so it doesn't
- * clash with the orange "needs response" border the same row may carry. */
+ * than the current user. Solid violet fill (no border) so it doesn't
+ * clash with the orange "needs response" border the same row may carry,
+ * and stands apart from the green/red Bechdel pills + yellow accent. */
 .new-badge {
   display: inline-block;
   vertical-align: middle;
@@ -1416,8 +1417,8 @@ a.pill:hover, a.pill-link:hover {
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.08em;
-  background: var(--accent);
-  color: #1a1300;
+  background: #a78bfa;
+  color: #1a1230;
   border-radius: 999px;
   line-height: 1.4;
 }
