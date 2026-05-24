@@ -1405,6 +1405,23 @@ a.pill:hover, a.pill-link:hover {
 .users-list-name { font-weight: 500; }
 .users-list-email { color: var(--muted); font-size: 0.85rem; }
 
+/* "NEW" chip on movies that were added in the past week by someone other
+ * than the current user. Solid accent fill (no border) so it doesn't
+ * clash with the orange "needs response" border the same row may carry. */
+.new-badge {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 0.45rem;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: var(--accent);
+  color: #1a1300;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+
 .user-toggle {
   display: flex;
   align-items: center;

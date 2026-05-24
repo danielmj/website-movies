@@ -5,6 +5,7 @@ import { useAuth } from '../auth.jsx';
 import MovieCard from '../components/MovieCard.jsx';
 import RatingControls from '../components/RatingControls.jsx';
 import RatingPromptBanner from '../components/RatingPromptBanner.jsx';
+import { shouldShowNewBadge } from '../newBadge.js';
 
 const VIEW_KEY = 'mmm.movieListView';
 
@@ -196,6 +197,7 @@ function MovieListItem({ movie, onChange }) {
           <div className="title">
             {movie.title}
             {movie.year && <span className="muted"> ({movie.year})</span>}
+            {shouldShowNewBadge(movie, user) && <span className="new-badge">NEW</span>}
           </div>
           <div className="muted">
             {movie.duration_minutes ? `${movie.duration_minutes}m` : '—'}

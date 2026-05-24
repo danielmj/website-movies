@@ -12,6 +12,7 @@ import RatingPicker, {
 import SegmentedControl from '../components/SegmentedControl.jsx';
 import { pickPairing, typeLabel, typeEmoji, DESCRIPTOR_GLOSS } from '../pairing.js';
 import { ExplainPopup } from './Profile.jsx';
+import { isFreshlyAdded, markBadgeViewed } from '../newBadge.js';
 
 function fmtDate(s) {
   if (!s) return '';
@@ -52,6 +53,14 @@ export default function MovieDetail() {
     }
   }
   useEffect(() => { load(); }, [id]);
+
+  // First time the user opens a freshly-added movie's detail, lock in the
+  // current day so the home-list NEW badge can dismiss itself tomorrow.
+  useEffect(() => {
+    if (movie && user && isFreshlyAdded(movie, user)) {
+      markBadgeViewed(movie.id);
+    }
+  }, [movie, user]);
 
   if (err) return <div className="container error">{err}</div>;
   if (!movie) return <div className="container">Loading…</div>;

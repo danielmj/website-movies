@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { RATING_EMOJI } from './RatingPicker.jsx';
 import RatingControls from './RatingControls.jsx';
 import { useAuth } from '../auth.jsx';
+import { shouldShowNewBadge } from '../newBadge.js';
 
 export default function MovieCard({ movie, onChange }) {
   const { user } = useAuth();
@@ -38,6 +39,7 @@ export default function MovieCard({ movie, onChange }) {
         <div className="spread" style={{ gap: '0.5rem' }}>
           <h3 style={{ flex: 1 }}>
             <Link to={`/movies/${movie.id}`} className="card-title">{movie.title}</Link>
+            {shouldShowNewBadge(movie, user) && <span className="new-badge">NEW</span>}
           </h3>
           {user && (
             <button
