@@ -310,6 +310,44 @@ function ProfileStats({ subjectUser, movies }) {
     };
   })();
 
+  // Movies the subject user originally added to the main list that the
+  // group then watched during any Maybe Movie session (attendance not
+  // required — this credits them for contributing the pick). Distinct
+  // movie ids; same movie watched in two sessions only counts once.
+  const watchedSessionsAll = (history || []).filter((s) => s.watched_movie_id);
+  const addedAndWatchedIds = new Set();
+  for (const s of watchedSessionsAll) {
+    const movie = movies.find((m) => m.id === s.watched_movie_id);
+    if (movie && movie.added_by_user_id === subjectUser.id) {
+      addedAndWatchedIds.add(movie.id);
+    }
+  }
+  const addedAndWatchedCount = addedAndWatchedIds.size;
+
+  // Group rating on movies the subject user added that were watched at any
+  // maybe session. Per-session avg across that session's attendees, then
+  // averaged across qualifying sessions (so a movie watched twice weighs
+  // twice — matches the existing "Group rating on your picks" math).
+  const groupRatingOnAdditions = (() => {
+    const perMovieAvgs = [];
+    for (const session of watchedSessionsAll) {
+      const movie = movies.find((m) => m.id === session.watched_movie_id);
+      if (!movie || movie.added_by_user_id !== subjectUser.id) continue;
+      const attendeeIds = new Set(session.attendees.map((a) => a.user_id));
+      const numericRatings = movie.user_movies
+        .filter((u) => attendeeIds.has(u.user_id) && u.rating)
+        .map((u) => RATING_VALUE[u.rating])
+        .filter((v) => v != null);
+      if (!numericRatings.length) continue;
+      perMovieAvgs.push(numericRatings.reduce((a, b) => a + b, 0) / numericRatings.length);
+    }
+    if (!perMovieAvgs.length) return null;
+    return {
+      avg: (perMovieAvgs.reduce((a, b) => a + b, 0) / perMovieAvgs.length).toFixed(1),
+      count: perMovieAvgs.length,
+    };
+  })();
+
   return (
     <section className="card" style={{ marginTop: '1rem' }}>
       <h2 style={{ marginTop: 0 }}>Stats</h2>
@@ -446,6 +484,33 @@ function ProfileStats({ subjectUser, movies }) {
               </div>
               <div className="stat-sub">
                 across {groupRatingOnPicks.count} pick{groupRatingOnPicks.count === 1 ? '' : 's'}
+              </div>
+            </ClickableStat>
+          )}
+
+          {addedAndWatchedCount > 0 && (
+            <ClickableStat onClick={() => setExplain({
+              title: 'Your additions watched',
+              body: `Distinct movies you originally added to the main list (added_by_user_id) that the group then watched during a Maybe Movie session. Counts every past maybe session — attendance isn't required, since this credits you for contributing the pick. The same movie watched at two sessions only counts once.`,
+            })}>
+              <div className="stat-label">Your additions watched</div>
+              <div className="stat-value">{addedAndWatchedCount}</div>
+              <div className="stat-sub">movies you added &amp; the group watched</div>
+            </ClickableStat>
+          )}
+
+          {groupRatingOnAdditions && (
+            <ClickableStat onClick={() => setExplain({
+              title: 'Group rating on your additions',
+              body: 'For every Maybe Movie session that watched a movie you originally added to the main list, we map each attendee\'s rating to a number (Love=5, Like=4, Meh=3, Eh=2, Hate=1) and average them — that\'s the group score for that session. This tile averages those scores. Differs from "Group rating on your picks" in that it tracks who added the movie, not who rated it.',
+            })}>
+              <div className="stat-label">Group rating on your additions</div>
+              <div className="stat-value">
+                {groupRatingOnAdditions.avg}
+                <span className="stat-unit"> / 5</span>
+              </div>
+              <div className="stat-sub">
+                across {groupRatingOnAdditions.count} session{groupRatingOnAdditions.count === 1 ? '' : 's'}
               </div>
             </ClickableStat>
           )}
