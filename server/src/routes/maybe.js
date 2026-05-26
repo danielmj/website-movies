@@ -6,10 +6,17 @@ const router = express.Router();
 
 async function loadSession(sessionId) {
   const [rows] = await pool.query(
-    `SELECT s.id, s.started_by_user_id, s.started_at, s.ended_at, s.watched_movie_id, s.active,
-            u.name AS started_by_name
+    `SELECT s.id, s.started_by_user_id, s.started_at, s.ended_at, s.watched_movie_id,
+            s.cancelled_by_user_id, s.active,
+            u.name AS started_by_name,
+            cu.name AS cancelled_by_name,
+            m.title AS watched_movie_title,
+            m.year AS watched_movie_year,
+            m.poster_url AS watched_movie_poster_url
        FROM maybe_sessions s
        JOIN users u ON u.id = s.started_by_user_id
+       LEFT JOIN users cu ON cu.id = s.cancelled_by_user_id
+       LEFT JOIN movies m ON m.id = s.watched_movie_id
       WHERE s.id = ?`,
     [sessionId],
   );
@@ -28,7 +35,22 @@ async function loadSession(sessionId) {
       WHERE v.session_id = ?`,
     [sessionId],
   );
-  return { ...session, attendees, votes };
+  // Comments on the watched movie are surfaced on the past-session page so
+  // viewers can read what attendees thought without bouncing to the movie
+  // detail page. Only loaded when there's a watched movie.
+  let comments = [];
+  if (session.watched_movie_id) {
+    const [rows2] = await pool.query(
+      `SELECT c.id, c.user_id, c.body, c.created_at, c.updated_at, u.name
+         FROM movie_comments c
+         JOIN users u ON u.id = c.user_id
+        WHERE c.movie_id = ?
+        ORDER BY c.created_at`,
+      [session.watched_movie_id],
+    );
+    comments = rows2;
+  }
+  return { ...session, attendees, votes, comments };
 }
 
 // Currently active session (or null). Used by the global banner poller.
@@ -263,8 +285,12 @@ router.post('/:id/watched', requireAuth, async (req, res, next) => {
 router.post('/:id/cancel', requireAuth, async (req, res, next) => {
   try {
     await pool.query(
-      'UPDATE maybe_sessions SET active = FALSE, ended_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [Number(req.params.id)],
+      `UPDATE maybe_sessions
+          SET active = FALSE,
+              ended_at = CURRENT_TIMESTAMP,
+              cancelled_by_user_id = ?
+        WHERE id = ?`,
+      [req.session.userId, Number(req.params.id)],
     );
     res.json({ ok: true });
   } catch (err) {
@@ -282,6 +308,97 @@ router.post('/:id/dismiss-prompt', requireAuth, async (req, res, next) => {
     res.json({ ok: true });
   } catch (err) {
     next(err);
+  }
+});
+
+// Admin-only: edit a past session's metadata + attendees. Accepts any
+// subset of {watched_movie_id, started_by_user_id, cancelled_by_user_id,
+// cancelled, attendee_ids}. cancelled=true clears the watched movie and
+// requires a cancelled_by; cancelled=false clears cancelled_by and requires
+// a watched movie. The session's ended_at is preserved.
+router.patch('/:id', requireAdmin, async (req, res, next) => {
+  const conn = await pool.getConnection();
+  try {
+    const id = Number(req.params.id);
+    const [exists] = await conn.query('SELECT id, ended_at FROM maybe_sessions WHERE id = ?', [id]);
+    if (!exists.length) {
+      conn.release();
+      return res.status(404).json({ error: 'not found' });
+    }
+
+    const body = req.body || {};
+    const sets = [];
+    const params = [];
+
+    if (Object.prototype.hasOwnProperty.call(body, 'cancelled')) {
+      if (body.cancelled) {
+        sets.push('watched_movie_id = NULL');
+        const cb = body.cancelled_by_user_id != null ? Number(body.cancelled_by_user_id) : null;
+        if (!cb) {
+          conn.release();
+          return res.status(400).json({ error: 'cancelled_by_user_id required when cancelled=true' });
+        }
+        sets.push('cancelled_by_user_id = ?');
+        params.push(cb);
+      } else {
+        const wm = body.watched_movie_id != null ? Number(body.watched_movie_id) : null;
+        if (!wm) {
+          conn.release();
+          return res.status(400).json({ error: 'watched_movie_id required when cancelled=false' });
+        }
+        sets.push('watched_movie_id = ?');
+        params.push(wm);
+        sets.push('cancelled_by_user_id = NULL');
+      }
+    } else {
+      // Allow editing watched_movie_id / cancelled_by_user_id without
+      // toggling cancelled state, e.g. fixing a typo on who hit cancel.
+      if (Object.prototype.hasOwnProperty.call(body, 'watched_movie_id')) {
+        const wm = body.watched_movie_id != null ? Number(body.watched_movie_id) : null;
+        sets.push('watched_movie_id = ?');
+        params.push(wm || null);
+      }
+      if (Object.prototype.hasOwnProperty.call(body, 'cancelled_by_user_id')) {
+        const cb = body.cancelled_by_user_id != null ? Number(body.cancelled_by_user_id) : null;
+        sets.push('cancelled_by_user_id = ?');
+        params.push(cb || null);
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'started_by_user_id')) {
+      const sb = Number(body.started_by_user_id);
+      if (!sb) {
+        conn.release();
+        return res.status(400).json({ error: 'started_by_user_id must be a valid user id' });
+      }
+      sets.push('started_by_user_id = ?');
+      params.push(sb);
+    }
+
+    await conn.beginTransaction();
+
+    if (sets.length) {
+      await conn.query(`UPDATE maybe_sessions SET ${sets.join(', ')} WHERE id = ?`, [...params, id]);
+    }
+
+    if (Array.isArray(body.attendee_ids)) {
+      const ids = Array.from(new Set(body.attendee_ids.map(Number).filter(Boolean)));
+      await conn.query('DELETE FROM maybe_attendees WHERE session_id = ?', [id]);
+      if (ids.length) {
+        await conn.query(
+          'INSERT INTO maybe_attendees (session_id, user_id) VALUES ?',
+          [ids.map((uid) => [id, uid])],
+        );
+      }
+    }
+
+    await conn.commit();
+    res.json(await loadSession(id));
+  } catch (err) {
+    try { await conn.rollback(); } catch {}
+    next(err);
+  } finally {
+    conn.release();
   }
 });
 

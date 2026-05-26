@@ -48,6 +48,11 @@ const MIGRATIONS = [
   // The home-page banner that asks attendees to update their rating is
   // suppressed once this is set (or once they attend a newer ended session).
   `ALTER TABLE maybe_attendees ADD COLUMN rating_prompt_dismissed_at TIMESTAMP NULL`,
+  // Tracks who hit "Perhaps not" on a maybe session, so the past-session
+  // page can attribute the cancellation. Nullable: older rows pre-date the
+  // column, and watched-then-ended sessions never set it.
+  `ALTER TABLE maybe_sessions ADD COLUMN cancelled_by_user_id INT NULL`,
+  `ALTER TABLE maybe_sessions ADD CONSTRAINT fk_maybe_sessions_cancelled_by FOREIGN KEY (cancelled_by_user_id) REFERENCES users(id) ON DELETE SET NULL`,
 ];
 
 (async () => {
@@ -67,6 +72,7 @@ const MIGRATIONS = [
         if (
           err.code === 'ER_DUP_FIELDNAME' ||
           err.code === 'ER_DUP_KEYNAME' ||
+          err.code === 'ER_FK_DUP_NAME' ||
           err.code === 'ER_BAD_FIELD_ERROR' ||
           err.code === 'ER_CANT_DROP_FIELD_OR_KEY'
         ) continue;

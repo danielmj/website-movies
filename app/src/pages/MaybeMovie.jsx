@@ -422,13 +422,13 @@ function MaybeHistory({ canDelete }) {
           {rows.map((s) => (
             <li key={s.id}>
               <div className="maybe-history-head">
-                <span className="maybe-history-date">
+                <Link to={`/maybe/${s.id}`} className="maybe-history-date">
                   {new Date(s.ended_at).toLocaleDateString(undefined, {
                     year: 'numeric', month: 'short', day: 'numeric',
                   })}
-                </span>
+                </Link>
                 {s.cancelled ? (
-                  <span className="pill bad">Cancelled</span>
+                  <Link to={`/maybe/${s.id}`} className="pill bad" style={{ textDecoration: 'none' }}>Cancelled</Link>
                 ) : (
                   <Link to={`/movies/${s.watched_movie_id}`} className="maybe-history-movie">
                     {s.watched_movie_title || 'Untitled movie'}
