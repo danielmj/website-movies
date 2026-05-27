@@ -244,6 +244,7 @@ function EditSessionModal({ session, onClose, onSaved }) {
   const [watchedMovieId, setWatchedMovieId] = useState(session.watched_movie_id || '');
   const [startedBy, setStartedBy] = useState(session.started_by_user_id);
   const [cancelledBy, setCancelledBy] = useState(session.cancelled_by_user_id || '');
+  const [endedDate, setEndedDate] = useState(() => (session.ended_at || '').slice(0, 10));
   const [attendees, setAttendees] = useState(() => new Set(session.attendees.map((a) => a.user_id)));
   const [users, setUsers] = useState([]);
   const [movies, setMovies] = useState([]);
@@ -282,6 +283,12 @@ function EditSessionModal({ session, onClose, onSaved }) {
       } else {
         if (!watchedMovieId) throw new Error('Pick the watched movie');
         body.watched_movie_id = Number(watchedMovieId);
+      }
+      if (endedDate && endedDate !== (session.ended_at || '').slice(0, 10)) {
+        // Preserve the original time-of-day so we don't shift the timestamp
+        // to midnight when the admin only meant to nudge the date.
+        const origTime = (session.ended_at || '').slice(11, 19) || '12:00:00';
+        body.ended_at = `${endedDate} ${origTime}`;
       }
       await api.patch(`/api/maybe/${session.id}`, body);
       await onSaved();
@@ -353,6 +360,15 @@ function EditSessionModal({ session, onClose, onSaved }) {
           <select value={startedBy} onChange={(e) => setStartedBy(e.target.value)}>
             {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
+        </div>
+
+        <div className="field" style={{ marginBottom: '0.75rem' }}>
+          <label>{cancelled ? 'Cancelled on' : 'Watched on'}</label>
+          <input
+            type="date"
+            value={endedDate}
+            onChange={(e) => setEndedDate(e.target.value)}
+          />
         </div>
 
         <div className="field" style={{ marginBottom: '0.75rem' }}>

@@ -313,9 +313,9 @@ router.post('/:id/dismiss-prompt', requireAuth, async (req, res, next) => {
 
 // Admin-only: edit a past session's metadata + attendees. Accepts any
 // subset of {watched_movie_id, started_by_user_id, cancelled_by_user_id,
-// cancelled, attendee_ids}. cancelled=true clears the watched movie and
-// requires a cancelled_by; cancelled=false clears cancelled_by and requires
-// a watched movie. The session's ended_at is preserved.
+// cancelled, attendee_ids, ended_at}. cancelled=true clears the watched
+// movie and requires a cancelled_by; cancelled=false clears cancelled_by
+// and requires a watched movie.
 router.patch('/:id', requireAdmin, async (req, res, next) => {
   const conn = await pool.getConnection();
   try {
@@ -373,6 +373,16 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
       }
       sets.push('started_by_user_id = ?');
       params.push(sb);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'ended_at')) {
+      const v = body.ended_at;
+      if (!v || typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/.test(v)) {
+        conn.release();
+        return res.status(400).json({ error: 'ended_at must be YYYY-MM-DD or YYYY-MM-DD HH:MM:SS' });
+      }
+      sets.push('ended_at = ?');
+      params.push(v);
     }
 
     await conn.beginTransaction();
