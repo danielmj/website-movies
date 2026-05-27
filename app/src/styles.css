@@ -504,6 +504,31 @@ input[type=text], input[type=email], input[type=password], input[type=number], i
 .others-list a:hover { color: var(--accent); text-decoration: none; }
 .others-list .rating-emoji { font-size: 1rem; }
 .others-list .want-mark { color: var(--accent); }
+/* Collapsed per-user breakdown — one clickable pill per emoji bucket
+ * (rating / status / want-to-see). Clicking a pill reveals the names of
+ * the users in that bucket below. */
+.others-summary { margin-top: 0.5rem; font-size: 0.8rem; }
+.others-buckets { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.others-bucket {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.others-bucket:hover { border-color: var(--accent); color: var(--text); }
+.others-bucket.active { background: var(--panel); border-color: var(--accent); color: var(--text); }
+.others-bucket-emoji { font-size: 1rem; }
+.others-bucket-count { font-variant-numeric: tabular-nums; }
+.others-bucket-names { margin-top: 0.4rem; color: var(--muted); }
+.others-bucket-names a { color: var(--text); text-decoration: none; }
+.others-bucket-names a:hover { color: var(--accent); }
 .movie-card.needs-response { border-color: var(--accent); }
 /* Generic flag for any card / panel that's waiting on the user — same
  * accent border as the card list view. Used on the movie-detail "Your

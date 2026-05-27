@@ -1,15 +1,31 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { RATING_EMOJI } from './RatingPicker.jsx';
+import { RATING_LABEL } from './RatingPicker.jsx';
 import RatingControls from './RatingControls.jsx';
 import { useAuth } from '../auth.jsx';
 import { shouldShowNewBadge } from '../newBadge.js';
+
+// Buckets render the per-user breakdown as a row of clickable emoji+count
+// pills instead of one line per name. Order matches the rating gradient,
+// then catch-all states, then the side want-to-see flag.
+const OTHER_BUCKETS = [
+  { key: 'high_rec',         emoji: '😍', label: RATING_LABEL.high_rec,         match: (u) => u.status === 'seen' && u.rating === 'high_rec' },
+  { key: 'rec',              emoji: '🙂', label: RATING_LABEL.rec,              match: (u) => u.status === 'seen' && u.rating === 'rec' },
+  { key: 'neutral',          emoji: '😐', label: RATING_LABEL.neutral,          match: (u) => u.status === 'seen' && u.rating === 'neutral' },
+  { key: 'dont_like',        emoji: '🙁', label: RATING_LABEL.dont_like,        match: (u) => u.status === 'seen' && u.rating === 'dont_like' },
+  { key: 'really_dont_like', emoji: '🤮', label: RATING_LABEL.really_dont_like, match: (u) => u.status === 'seen' && u.rating === 'really_dont_like' },
+  { key: 'seen_no_rating',   emoji: '👁', label: 'Seen, no rating',             match: (u) => u.status === 'seen' && !u.rating },
+  { key: 'not_seen',         emoji: '🚫', label: "Haven't seen",                match: (u) => u.status && u.status !== 'seen' },
+  { key: 'no_response',      emoji: '❔', label: 'No response',                 match: (u) => !u.status },
+  { key: 'want_to_see',      emoji: '☑', label: 'Wants to see',                match: (u) => u.interest === 'want_to_see' },
+];
 
 export default function MovieCard({ movie, onChange }) {
   const { user } = useAuth();
   const me = user ? movie.user_movies.find((u) => u.user_id === user.id) : null;
   const [busy, setBusy] = useState(false);
+  const [expandedBucket, setExpandedBucket] = useState(null);
 
   async function removeMovie(e) {
     e.preventDefault();
@@ -26,6 +42,10 @@ export default function MovieCard({ movie, onChange }) {
 
   const others = user ? movie.user_movies.filter((u) => u.user_id !== user.id) : [];
   const needsResponse = user && !me;
+  const buckets = OTHER_BUCKETS
+    .map((b) => ({ ...b, users: others.filter(b.match) }))
+    .filter((b) => b.users.length > 0);
+  const expanded = buckets.find((b) => b.key === expandedBucket) || null;
 
   return (
     <div className={`movie-card${needsResponse ? ' needs-response' : ''}`}>
@@ -76,23 +96,38 @@ export default function MovieCard({ movie, onChange }) {
               </div>
             )}
             <RatingControls movie={movie} me={me} onChange={onChange} />
-            {others.length > 0 && (
-              <ul className="others-list">
-                {others.map((u) => (
-                  <li key={u.user_id}>
-                    <Link to={`/users/${u.user_id}`}>{u.name}</Link>
-                    {': '}
-                    {u.status === 'seen' && u.rating
-                      ? <span className="rating-emoji" aria-label={`Rated ${u.rating}`}>{RATING_EMOJI[u.rating]}</span>
-                      : u.status === 'seen'
-                        ? 'Seen it'
-                        : u.status
-                          ? "Haven't seen"
-                          : 'No response'}
-                    {u.interest === 'want_to_see' ? <span className="want-mark" title="Wants to see">{' ☑'}</span> : null}
-                  </li>
-                ))}
-              </ul>
+            {buckets.length > 0 && (
+              <div className="others-summary">
+                <div className="others-buckets">
+                  {buckets.map((b) => {
+                    const isOpen = expandedBucket === b.key;
+                    return (
+                      <button
+                        key={b.key}
+                        type="button"
+                        className={`others-bucket${isOpen ? ' active' : ''}`}
+                        onClick={() => setExpandedBucket(isOpen ? null : b.key)}
+                        title={b.label}
+                        aria-label={`${b.label}: ${b.users.length}`}
+                        aria-expanded={isOpen}
+                      >
+                        <span className="others-bucket-emoji">{b.emoji}</span>
+                        <span className="others-bucket-count">{b.users.length}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {expanded && (
+                  <div className="others-bucket-names">
+                    {expanded.users.map((u, i) => (
+                      <span key={u.user_id}>
+                        {i > 0 ? ', ' : ''}
+                        <Link to={`/users/${u.user_id}`}>{u.name}</Link>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </>
         ) : (

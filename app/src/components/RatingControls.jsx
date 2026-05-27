@@ -14,19 +14,39 @@ import { useAuth } from '../auth.jsx';
 export default function RatingControls({ movie, me, onChange, compact = false }) {
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
+  // True after the user picks "Seen it" with no saved rating. We hold off
+  // persisting anything until they pick an emoji so the user_movies row
+  // (and the parent's "needs response" border) stays in its un-rated state.
+  const [pendingSeen, setPendingSeen] = useState(false);
   if (!user) return null;
 
-  const seenState = me?.status === 'seen' ? 'seen' : me?.status ? 'not_seen' : null;
+  const persistedSeen = me?.status === 'seen' ? 'seen' : me?.status ? 'not_seen' : null;
+  const seenState = pendingSeen ? 'seen' : persistedSeen;
   // Server defaults missing rows to 'indifferent', but we render that
   // explicitly so the segmented control always has a selected segment.
   const interest = me?.interest || 'indifferent';
 
   async function setSeen(next) {
+    if (next === 'seen') {
+      // Re-affirming "seen" with an existing rating: just persist.
+      // Otherwise enter pending mode and wait for the rating click.
+      if (me?.rating) {
+        setBusy(true);
+        try {
+          await api.put(`/api/ratings/${movie.id}`, { status: 'seen', rating: me.rating });
+          onChange();
+        } finally {
+          setBusy(false);
+        }
+      } else {
+        setPendingSeen(true);
+      }
+      return;
+    }
     setBusy(true);
     try {
-      const status = next === 'seen' ? 'seen' : 'not_interested';
-      const rating = next === 'seen' ? (me?.rating || 'rec') : null;
-      await api.put(`/api/ratings/${movie.id}`, { status, rating });
+      await api.put(`/api/ratings/${movie.id}`, { status: 'not_interested', rating: null });
+      setPendingSeen(false);
       onChange();
     } finally {
       setBusy(false);
@@ -37,6 +57,7 @@ export default function RatingControls({ movie, me, onChange, compact = false })
     setBusy(true);
     try {
       await api.put(`/api/ratings/${movie.id}`, { status: 'seen', rating });
+      setPendingSeen(false);
       onChange();
     } finally {
       setBusy(false);
@@ -75,7 +96,7 @@ export default function RatingControls({ movie, me, onChange, compact = false })
         disabled={busy}
       />
       {seenState === 'seen' && (
-        <RatingPicker value={me.rating} onChange={setRating} disabled={busy} />
+        <RatingPicker value={pendingSeen ? null : me?.rating} onChange={setRating} disabled={busy} />
       )}
     </div>
   );

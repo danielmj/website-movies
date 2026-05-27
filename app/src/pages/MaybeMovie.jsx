@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { useAuth } from '../auth.jsx';
 import { useMaybe } from '../maybe.jsx';
 import { POSITIVE_RATINGS } from '../components/RatingPicker.jsx';
+import MaybeHistory from '../components/MaybeHistory.jsx';
 
 const SORTS = {
   haventSeen: 'Most attendees haven\'t seen it',
@@ -61,7 +62,7 @@ export default function MaybeMovie() {
           <p style={{ color: 'var(--muted)' }}>Click "Maybe movie?" up top to start one.</p>
           <Link to="/">Back to movies</Link>
         </div>
-        <MaybeHistory canDelete={!!user?.is_admin} />
+        <MaybeHistory canDelete={!!user?.is_admin} style={{ marginTop: '1.5rem' }} />
       </div>
     );
   }
@@ -348,7 +349,7 @@ export default function MaybeMovie() {
         />
       )}
 
-      <MaybeHistory canDelete={!!user?.is_admin} />
+      <MaybeHistory canDelete={!!user?.is_admin} style={{ marginTop: '1.5rem' }} />
     </div>
   );
 }
@@ -385,77 +386,6 @@ function EditAttendeesModal({ allUsers, attendees, onClose, onSave }) {
         </div>
       </div>
     </div>
-  );
-}
-
-// Past Maybe Movie sessions — both completed (with a watched movie) and
-// cancelled. Visible to all signed-in users. Admins get a delete button per
-// row to wipe a session from history.
-function MaybeHistory({ canDelete }) {
-  const [rows, setRows] = useState(null);
-  const [err, setErr] = useState(null);
-
-  async function load() {
-    try { setRows(await api.get('/api/maybe/history')); }
-    catch (e) { setErr(e.message); }
-  }
-  useEffect(() => { load(); }, []);
-
-  async function remove(id) {
-    if (!confirm('Delete this session from history?')) return;
-    try {
-      await api.del(`/api/maybe/${id}`);
-      await load();
-    } catch (e) { setErr(e.message); }
-  }
-
-  if (err) return <div className="card error" style={{ marginTop: '1.5rem' }}>{err}</div>;
-  if (!rows) return null;
-
-  return (
-    <section className="card" style={{ marginTop: '1.5rem' }}>
-      <h2 style={{ marginTop: 0 }}>Past Maybe Movies</h2>
-      {rows.length === 0 ? (
-        <p style={{ color: 'var(--muted)', margin: 0 }}>No history yet.</p>
-      ) : (
-        <ul className="maybe-history">
-          {rows.map((s) => (
-            <li key={s.id}>
-              <div className="maybe-history-head">
-                <Link to={`/maybe/${s.id}`} className="maybe-history-date">
-                  {new Date(s.ended_at).toLocaleDateString(undefined, {
-                    year: 'numeric', month: 'short', day: 'numeric',
-                  })}
-                </Link>
-                {s.cancelled ? (
-                  <Link to={`/maybe/${s.id}`} className="pill bad" style={{ textDecoration: 'none' }}>Cancelled</Link>
-                ) : (
-                  <Link to={`/movies/${s.watched_movie_id}`} className="maybe-history-movie">
-                    {s.watched_movie_title || 'Untitled movie'}
-                  </Link>
-                )}
-                {canDelete && (
-                  <button className="maybe-history-delete" onClick={() => remove(s.id)} aria-label="Delete">×</button>
-                )}
-              </div>
-              <div className="maybe-history-meta">
-                {s.attendees.length === 0 ? 'No attendees' : (
-                  <>
-                    with {s.attendees.map((a, i) => (
-                      <span key={a.user_id}>
-                        {i > 0 ? ', ' : ''}
-                        <Link to={`/users/${a.user_id}`}>{a.name}</Link>
-                      </span>
-                    ))}
-                  </>
-                )}
-                {s.started_by_name && ` · started by ${s.started_by_name}`}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }
 

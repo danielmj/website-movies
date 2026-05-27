@@ -18,6 +18,7 @@ export default function Header() {
         <nav className="nav">
           <NavLink to="/" end>Movies</NavLink>
           {user && <NavLink to="/add">Search</NavLink>}
+          {user && <NavLink to="/history">History</NavLink>}
           {user && active && !onMaybePage && (
             <NavLink to="/maybe" className="nav-maybe">Maybe Movie</NavLink>
           )}

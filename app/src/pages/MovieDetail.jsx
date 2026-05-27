@@ -44,6 +44,10 @@ export default function MovieDetail() {
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  // True after the user picks "Seen it" with no saved rating. We hold off
+  // persisting anything until they pick an emoji so the user_movies row
+  // (and the orange "needs response" border) stays in its un-rated state.
+  const [pendingSeen, setPendingSeen] = useState(false);
 
   async function load() {
     try {
@@ -69,13 +73,15 @@ export default function MovieDetail() {
     ? movie.user_movies.find((u) => u.user_id === user.id)
     : null;
   const interest = me?.interest || 'indifferent';
-  const seenState = me?.status === 'seen' ? 'seen' : me?.status ? 'not_seen' : null;
+  const persistedSeen = me?.status === 'seen' ? 'seen' : me?.status ? 'not_seen' : null;
+  const seenState = pendingSeen ? 'seen' : persistedSeen;
 
   async function setStatus(status, rating = null) {
     setBusy(true);
     try {
       if (status === 'seen' && !rating) rating = me?.rating || 'rec';
       await api.put(`/api/ratings/${movie.id}`, { status, rating });
+      setPendingSeen(false);
       await load();
     } finally {
       setBusy(false);
@@ -83,8 +89,12 @@ export default function MovieDetail() {
   }
 
   async function setSeenState(next) {
-    if (next === 'seen') await setStatus('seen', me?.rating || 'rec');
-    else await setStatus('not_interested');
+    if (next === 'seen') {
+      if (me?.rating) await setStatus('seen', me.rating);
+      else setPendingSeen(true);
+      return;
+    }
+    await setStatus('not_interested');
   }
 
   async function setInterest(next) {
@@ -195,11 +205,16 @@ export default function MovieDetail() {
 
       {user ? (
         <>
-          <section className={`card${!me ? ' needs-response' : ''}`} style={{ marginTop: '1rem' }}>
+          <section className={`card${(!me || pendingSeen) ? ' needs-response' : ''}`} style={{ marginTop: '1rem' }}>
             <h2 style={{ marginTop: 0 }}>Your rating</h2>
-            {!me && (
+            {!me && !pendingSeen && (
               <div className="card-warn" role="note" style={{ marginBottom: '0.5rem' }}>
                 ⚠ Please mark whether you've seen this
+              </div>
+            )}
+            {pendingSeen && (
+              <div className="card-warn" role="note" style={{ marginBottom: '0.5rem' }}>
+                ⚠ Pick a rating to save your response
               </div>
             )}
             <div className="rating-controls">
@@ -216,7 +231,7 @@ export default function MovieDetail() {
                 disabled={busy}
               />
               {seenState === 'seen' && (
-                <RatingPicker value={me.rating} onChange={(r) => setStatus('seen', r)} disabled={busy} />
+                <RatingPicker value={pendingSeen ? null : me?.rating} onChange={(r) => setStatus('seen', r)} disabled={busy} />
               )}
             </div>
           </section>

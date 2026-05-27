@@ -38,7 +38,9 @@ export default function AddMovie() {
 
   const [seenState, setSeenState] = useState('not_seen');
   const [interest, setInterest] = useState('want_to_see');
-  const [rating, setRating] = useState('rec');
+  // Intentionally null — picking "Seen it" must surface an unselected
+  // rating picker so the user has to make an explicit choice before adding.
+  const [rating, setRating] = useState(null);
   const [adding, setAdding] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -320,7 +322,7 @@ export default function AddMovie() {
               <button onClick={() => { setPreview(null); setErr(null); }} disabled={adding}>
                 Pick a different one
               </button>
-              <button className="primary" onClick={addToList} disabled={adding}>
+              <button className="primary" onClick={addToList} disabled={adding || (seenState === 'seen' && !rating)}>
                 {adding ? 'Adding…' : 'Add to list'}
               </button>
             </div>

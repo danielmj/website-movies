@@ -59,7 +59,7 @@ export default function PastMaybeMovie() {
             )}
           </div>
         ) : (
-          <Link to={`/movies/${session.watched_movie_id}`} className="movie-row" style={{ textDecoration: 'none' }}>
+          <Link to={`/movies/${session.watched_movie_id}`} className="movie-row" style={{ textDecoration: 'none', gridTemplateColumns: '60px 1fr' }}>
             <div
               className="poster"
               style={session.watched_movie_poster_url ? { backgroundImage: `url(${session.watched_movie_poster_url})` } : {}}

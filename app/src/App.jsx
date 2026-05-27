@@ -12,6 +12,7 @@ import MovieDetail from './pages/MovieDetail.jsx';
 import AddMovie from './pages/AddMovie.jsx';
 import MaybeMovie from './pages/MaybeMovie.jsx';
 import PastMaybeMovie from './pages/PastMaybeMovie.jsx';
+import History from './pages/History.jsx';
 import Profile from './pages/Profile.jsx';
 import UserProfile from './pages/UserProfile.jsx';
 import Users from './pages/Users.jsx';
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="/add" element={<Protected><AddMovie /></Protected>} />
         <Route path="/maybe" element={<Protected><MaybeMovie /></Protected>} />
         <Route path="/maybe/:id" element={<Protected><PastMaybeMovie /></Protected>} />
+        <Route path="/history" element={<Protected><History /></Protected>} />
         <Route path="/profile" element={<Protected><Profile /></Protected>} />
         <Route path="/users" element={<Protected><Users /></Protected>} />
         <Route path="/users/:id" element={<Protected><UserProfile /></Protected>} />
