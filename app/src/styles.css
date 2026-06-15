@@ -1122,7 +1122,20 @@ a.pill:hover, a.pill-link:hover {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.55rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
+.maybe-history-poster {
+  flex: 0 0 auto;
+  width: 44px;
+  aspect-ratio: 2/3;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--panel);
+  border-radius: 4px;
+}
+.maybe-history-body { flex: 1 1 auto; min-width: 0; }
 .maybe-history-head {
   display: flex;
   align-items: center;

@@ -106,6 +106,7 @@ router.get('/history', requireAuth, async (req, res, next) => {
     const [sessions] = await pool.query(
       `SELECT s.id, s.started_at, s.ended_at, s.watched_movie_id,
               m.title AS watched_movie_title,
+              m.poster_url AS watched_movie_poster_url,
               u.name  AS started_by_name
        FROM maybe_sessions s
        LEFT JOIN movies m ON m.id = s.watched_movie_id
