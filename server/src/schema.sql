@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS user_movies (
   status ENUM('seen','want_to_see','not_interested') NOT NULL,
   rating ENUM('high_rec','rec','neutral','dont_like','really_dont_like') NULL,
   interest ENUM('want_to_see','indifferent','not_interested') NOT NULL DEFAULT 'indifferent',
+  must_be_there BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id, movie_id),

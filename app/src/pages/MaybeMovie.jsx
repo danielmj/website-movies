@@ -28,6 +28,7 @@ export default function MaybeMovie() {
     hideNotInterested: false,
     hideGroupWatched: true,
     onlyUnseen: false,
+    hideAbsentMustBeThere: true,
     genre: '',
     maxMinutes: '',
     decade: '',
@@ -84,6 +85,8 @@ export default function MaybeMovie() {
     const myVote = active.votes.find((v) => v.user_id === user.id && v.movie_id === m.id);
     const ups = active.votes.filter((v) => v.movie_id === m.id && v.vote === 'up').length;
     const downs = active.votes.filter((v) => v.movie_id === m.id && v.vote === 'down').length;
+    const mustAttendees = attendeeUm.filter((u) => u.must_be_there);
+    const mustAbsent = m.user_movies.filter((u) => u.must_be_there && !attendeeIds.has(u.user_id));
     return {
       ...m,
       _attendeeUm: attendeeUm,
@@ -98,6 +101,8 @@ export default function MaybeMovie() {
       _netVotes: ups - downs,
       _ups: ups,
       _downs: downs,
+      _mustAttendees: mustAttendees,
+      _mustAbsent: mustAbsent,
     };
   });
 
@@ -106,6 +111,7 @@ export default function MaybeMovie() {
     if (filters.hideNotInterested && m._anyNotInterested) return false;
     if (filters.hideGroupWatched && groupWatchedIds.has(m.id)) return false;
     if (filters.onlyUnseen && m._seenCount > 0) return false;
+    if (filters.hideAbsentMustBeThere && m._mustAbsent.length > 0) return false;
     if (filters.genre && !(m.genres || []).includes(filters.genre)) return false;
     if (filters.maxMinutes && (m.duration_minutes || 0) > Number(filters.maxMinutes)) return false;
     if (filters.decade && Number(m.decade) !== Number(filters.decade)) return false;
@@ -114,7 +120,26 @@ export default function MaybeMovie() {
     return true;
   });
 
+  // Sort priority, applied before the user-selected sort below:
+  //   1. Movies an attendee tagged "must be there" pin to the top.
+  //   2. Then movies with positive net votes (ranked by net votes desc).
+  //   3. Then everything else falls through to the user-chosen sort.
   const sorted = [...filtered].sort((a, b) => {
+    const aMust = a._mustAttendees.length > 0 ? 1 : 0;
+    const bMust = b._mustAttendees.length > 0 ? 1 : 0;
+    if (aMust !== bMust) return bMust - aMust;
+    if (aMust && bMust) {
+      // Within the must-be-there bucket, more endorsements rank first, then
+      // fall through to the user-chosen sort.
+      if (a._mustAttendees.length !== b._mustAttendees.length) {
+        return b._mustAttendees.length - a._mustAttendees.length;
+      }
+    } else {
+      const aUp = a._netVotes > 0 ? 1 : 0;
+      const bUp = b._netVotes > 0 ? 1 : 0;
+      if (aUp !== bUp) return bUp - aUp;
+      if (aUp && bUp && a._netVotes !== b._netVotes) return b._netVotes - a._netVotes;
+    }
     switch (sort) {
       case 'haventSeen': return b._haventSeen - a._haventSeen;
       case 'recPct': return (b._recPct ?? -1) - (a._recPct ?? -1);
@@ -249,6 +274,15 @@ export default function MaybeMovie() {
           </button>
           <button
             type="button"
+            className={`want-pill${filters.hideAbsentMustBeThere ? ' active' : ''}`}
+            aria-pressed={filters.hideAbsentMustBeThere}
+            onClick={() => setFilters({ ...filters, hideAbsentMustBeThere: !filters.hideAbsentMustBeThere })}
+          >
+            <span aria-hidden="true">{filters.hideAbsentMustBeThere ? '☑' : '☐'}</span>
+            {' '}Hide if absent must-see
+          </button>
+          <button
+            type="button"
             className={`want-pill${filters.hideNotInterested ? ' active' : ''}`}
             aria-pressed={filters.hideNotInterested}
             onClick={() => setFilters({ ...filters, hideNotInterested: !filters.hideNotInterested })}
@@ -279,7 +313,7 @@ export default function MaybeMovie() {
         {sorted.map((m) => (
           <div
             id={`maybe-movie-${m.id}`}
-            className={`movie-row${highlightId === m.id ? ' highlighted' : ''}`}
+            className={`movie-row${highlightId === m.id ? ' highlighted' : ''}${m._mustAttendees.length ? ' must-be-there' : ''}`}
             key={m.id}
           >
             <div className="vote">
@@ -322,6 +356,11 @@ export default function MaybeMovie() {
                   {m._recPct === null ? 'no ratings yet' : `${Math.round(m._recPct * 100)}% rec`} ·
                   {' '}{Math.round(m._wantPct * 100)}% want to see
                 </div>
+                {m._mustAttendees.length > 0 && (
+                  <div className="stats" style={{ color: 'var(--good)' }}>
+                    ★ Must be there: {m._mustAttendees.map((u) => u.name).join(', ')}
+                  </div>
+                )}
               </div>
             </Link>
             <div className="right">

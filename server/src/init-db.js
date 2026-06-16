@@ -53,6 +53,9 @@ const MIGRATIONS = [
   // column, and watched-then-ended sessions never set it.
   `ALTER TABLE maybe_sessions ADD COLUMN cancelled_by_user_id INT NULL`,
   `ALTER TABLE maybe_sessions ADD CONSTRAINT fk_maybe_sessions_cancelled_by FOREIGN KEY (cancelled_by_user_id) REFERENCES users(id) ON DELETE SET NULL`,
+  // "I must be there" — per-user, per-movie checkmark surfaced on the Maybe
+  // Movie list to flag a movie someone really wants to be present for.
+  `ALTER TABLE user_movies ADD COLUMN must_be_there BOOLEAN NOT NULL DEFAULT FALSE`,
 ];
 
 (async () => {

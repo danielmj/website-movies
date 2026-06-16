@@ -163,13 +163,13 @@ router.get('/', optionalAuth, async (req, res, next) => {
 
     if (req.session && req.session.userId) {
       const [um] = await pool.query(
-        `SELECT um.movie_id, um.user_id, um.status, um.rating, um.interest, u.name
+        `SELECT um.movie_id, um.user_id, um.status, um.rating, um.interest, um.must_be_there, u.name
          FROM user_movies um
          JOIN users u ON u.id = um.user_id
          WHERE um.movie_id IN (?)`,
         [ids],
       );
-      for (const r of um) byId.get(r.movie_id).user_movies.push({ ...r });
+      for (const r of um) byId.get(r.movie_id).user_movies.push({ ...r, must_be_there: !!r.must_be_there });
     }
 
     res.json([...byId.values()]);
@@ -207,7 +207,7 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
     if (req.session && req.session.userId) {
       const [allUsers] = await pool.query('SELECT id, name FROM users ORDER BY name');
       const [um] = await pool.query(
-        `SELECT user_id, status, rating, interest, updated_at
+        `SELECT user_id, status, rating, interest, must_be_there, updated_at
          FROM user_movies WHERE movie_id = ?`,
         [id],
       );
@@ -220,6 +220,7 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
           status: r ? r.status : null,
           rating: r ? r.rating : null,
           interest: r ? r.interest : 'indifferent',
+          must_be_there: r ? !!r.must_be_there : false,
           updated_at: r ? r.updated_at : null,
         };
       });

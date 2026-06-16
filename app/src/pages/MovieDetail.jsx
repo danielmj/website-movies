@@ -107,6 +107,16 @@ export default function MovieDetail() {
     }
   }
 
+  async function setMustBeThere(next) {
+    setBusy(true);
+    try {
+      await api.put(`/api/ratings/${movie.id}`, { must_be_there: !!next });
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Sort: people who responded first (seen, then haven't-seen), no-response last.
   // Within responders, "want to see" bubbles up by interest.
   const orderedUsers = movie.user_movies
@@ -233,6 +243,15 @@ export default function MovieDetail() {
               {seenState === 'seen' && (
                 <RatingPicker value={pendingSeen ? null : me?.rating} onChange={(r) => setStatus('seen', r)} disabled={busy} />
               )}
+              <label className={`must-be-there-toggle${me?.must_be_there ? ' active' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={!!me?.must_be_there}
+                  disabled={busy}
+                  onChange={(e) => setMustBeThere(e.target.checked)}
+                />
+                <span>I must be there</span>
+              </label>
             </div>
           </section>
 
@@ -246,6 +265,7 @@ export default function MovieDetail() {
                     <th>Seen?</th>
                     <th>Interest</th>
                     <th>Rating</th>
+                    <th title="Must be there">Must</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -265,6 +285,7 @@ export default function MovieDetail() {
                           </span>
                         ) : '—'}
                       </td>
+                      <td>{u.must_be_there ? <span title="Must be there" style={{ color: 'var(--good)' }}>✓</span> : '—'}</td>
                     </tr>
                   ))}
                 </tbody>

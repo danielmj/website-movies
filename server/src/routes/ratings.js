@@ -26,8 +26,9 @@ router.put('/:movieId', requireAuth, async (req, res, next) => {
     const body = req.body || {};
     const hasStatus   = Object.prototype.hasOwnProperty.call(body, 'status');
     const hasInterest = Object.prototype.hasOwnProperty.call(body, 'interest');
-    if (!hasStatus && !hasInterest) {
-      return res.status(400).json({ error: 'status or interest required' });
+    const hasMustBeThere = Object.prototype.hasOwnProperty.call(body, 'must_be_there');
+    if (!hasStatus && !hasInterest && !hasMustBeThere) {
+      return res.status(400).json({ error: 'status, interest, or must_be_there required' });
     }
 
     if (hasStatus && !STATUSES.has(body.status)) return res.status(400).json({ error: 'invalid status' });
@@ -44,7 +45,7 @@ router.put('/:movieId', requireAuth, async (req, res, next) => {
     // Look up the existing row (if any) so we can preserve fields the caller
     // didn't include in this PATCH-style request.
     const [existing] = await pool.query(
-      'SELECT status, rating, interest FROM user_movies WHERE user_id = ? AND movie_id = ?',
+      'SELECT status, rating, interest, must_be_there FROM user_movies WHERE user_id = ? AND movie_id = ?',
       [req.session.userId, movieId],
     );
     const prev = existing[0];
@@ -54,12 +55,13 @@ router.put('/:movieId', requireAuth, async (req, res, next) => {
       ? (body.status === 'seen' ? body.rating : null)
       : (prev?.rating ?? null);
     const finalInterest = hasInterest ? body.interest : (prev?.interest ?? 'indifferent');
+    const finalMustBeThere = hasMustBeThere ? !!body.must_be_there : !!(prev?.must_be_there);
 
     await pool.query(
-      `INSERT INTO user_movies (user_id, movie_id, status, rating, interest)
-       VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE status = VALUES(status), rating = VALUES(rating), interest = VALUES(interest)`,
-      [req.session.userId, movieId, finalStatus, finalRating, finalInterest],
+      `INSERT INTO user_movies (user_id, movie_id, status, rating, interest, must_be_there)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE status = VALUES(status), rating = VALUES(rating), interest = VALUES(interest), must_be_there = VALUES(must_be_there)`,
+      [req.session.userId, movieId, finalStatus, finalRating, finalInterest, finalMustBeThere],
     );
     res.json({ ok: true });
   } catch (err) {
