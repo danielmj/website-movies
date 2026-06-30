@@ -53,8 +53,8 @@ export function MaybeProvider({ children }) {
       await api.post(`/api/maybe/${sessionId}/watched`, { movie_id: movieId });
       await refresh();
     },
-    async cancel(sessionId) {
-      await api.post(`/api/maybe/${sessionId}/cancel`);
+    async cancel(sessionId, reason) {
+      await api.post(`/api/maybe/${sessionId}/cancel`, { reason: reason ?? null });
       await refresh();
     },
   };

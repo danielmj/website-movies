@@ -22,6 +22,9 @@ export default function MaybeMovie() {
   const [allUsers, setAllUsers] = useState([]);
   const [editingAttendees, setEditingAttendees] = useState(false);
   const [showExitPopup, setShowExitPopup] = useState(false);
+  // "Perhaps not" now asks for a reason first; once given, the survey shows.
+  const [showReasonPrompt, setShowReasonPrompt] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const [highlightId, setHighlightId] = useState(null);
   const [filters, setFilters] = useState({
     hideHated: true,
@@ -158,20 +161,32 @@ export default function MaybeMovie() {
         <button
           className="danger"
           onClick={() => {
-            if (!confirm('End this maybe movie without watching anything?')) return;
-            setShowExitPopup(true);
+            setCancelReason('');
+            setShowReasonPrompt(true);
           }}
         >
           Perhaps not
         </button>
       </div>
 
+      {showReasonPrompt && (
+        <CancelReasonPopup
+          value={cancelReason}
+          onChange={setCancelReason}
+          onClose={() => setShowReasonPrompt(false)}
+          onContinue={() => {
+            setShowReasonPrompt(false);
+            setShowExitPopup(true);
+          }}
+        />
+      )}
+
       {showExitPopup && (
         <PerhapsNotPopup
           onClose={() => setShowExitPopup(false)}
           onSubmit={async () => {
             setShowExitPopup(false);
-            await cancel(active.id);
+            await cancel(active.id, cancelReason.trim() || null);
             navigate('/');
           }}
         />
@@ -421,6 +436,35 @@ function EditAttendeesModal({ allUsers, attendees, onClose, onSave }) {
           <button onClick={onClose}>Cancel</button>
           <button className="primary" disabled={busy} onClick={async () => { setBusy(true); await onSave([...selected]); }}>
             Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Reason-for-cancelling prompt shown when the user hits "Perhaps not",
+// before the exit-interview survey. A reason is required to continue.
+function CancelReasonPopup({ value, onChange, onClose, onContinue }) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+        <h2 style={{ marginTop: 0 }}>End this maybe movie?</h2>
+        <p style={{ color: 'var(--muted)' }}>
+          Why are you ending it without watching anything?
+        </p>
+        <textarea
+          autoFocus
+          rows={3}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="e.g. everyone's too tired, can't agree on a movie…"
+          style={{ width: '100%' }}
+        />
+        <div className="row" style={{ marginTop: '1rem', justifyContent: 'flex-end', gap: '0.5rem' }}>
+          <button onClick={onClose}>Never mind</button>
+          <button className="primary" onClick={onContinue} disabled={!value.trim()}>
+            Continue
           </button>
         </div>
       </div>

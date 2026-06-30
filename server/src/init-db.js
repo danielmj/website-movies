@@ -63,6 +63,9 @@ const MIGRATIONS = [
   `ALTER TABLE movies ADD COLUMN created_by_user_id INT NULL`,
   `ALTER TABLE movies ADD CONSTRAINT fk_movies_created_by FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL`,
   `UPDATE movies SET created_by_user_id = added_by_user_id WHERE created_by_user_id IS NULL`,
+  // Free-text reason captured when someone hits "Perhaps not" to cancel a
+  // maybe-movie session. Nullable: older cancellations pre-date the prompt.
+  `ALTER TABLE maybe_sessions ADD COLUMN cancellation_reason TEXT NULL`,
 ];
 
 (async () => {

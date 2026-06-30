@@ -57,6 +57,11 @@ export default function PastMaybeMovie() {
                 by <Link to={`/users/${session.cancelled_by_user_id}`}>{session.cancelled_by_name}</Link>
               </span>
             )}
+            {session.cancellation_reason && (
+              <div style={{ color: 'var(--muted)', marginTop: '0.5rem' }}>
+                “{session.cancellation_reason}”
+              </div>
+            )}
           </div>
         ) : (
           <Link to={`/movies/${session.watched_movie_id}`} className="movie-row" style={{ textDecoration: 'none', gridTemplateColumns: '60px 1fr' }}>
@@ -244,6 +249,7 @@ function EditSessionModal({ session, onClose, onSaved }) {
   const [watchedMovieId, setWatchedMovieId] = useState(session.watched_movie_id || '');
   const [startedBy, setStartedBy] = useState(session.started_by_user_id);
   const [cancelledBy, setCancelledBy] = useState(session.cancelled_by_user_id || '');
+  const [cancellationReason, setCancellationReason] = useState(session.cancellation_reason || '');
   const [endedDate, setEndedDate] = useState(() => (session.ended_at || '').slice(0, 10));
   const [attendees, setAttendees] = useState(() => new Set(session.attendees.map((a) => a.user_id)));
   const [users, setUsers] = useState([]);
@@ -280,6 +286,7 @@ function EditSessionModal({ session, onClose, onSaved }) {
       if (cancelled) {
         if (!cancelledBy) throw new Error('Pick who cancelled the session');
         body.cancelled_by_user_id = Number(cancelledBy);
+        body.cancellation_reason = cancellationReason.trim() || null;
       } else {
         if (!watchedMovieId) throw new Error('Pick the watched movie');
         body.watched_movie_id = Number(watchedMovieId);
@@ -329,6 +336,14 @@ function EditSessionModal({ session, onClose, onSaved }) {
               <option value="">— Select user —</option>
               {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
+            <label style={{ marginTop: '0.5rem' }}>Reason</label>
+            <textarea
+              rows={2}
+              value={cancellationReason}
+              onChange={(e) => setCancellationReason(e.target.value)}
+              placeholder="Why was it cancelled?"
+              style={{ width: '100%' }}
+            />
           </div>
         ) : (
           <div className="field" style={{ marginBottom: '0.75rem' }}>

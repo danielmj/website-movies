@@ -7,7 +7,7 @@ const router = express.Router();
 async function loadSession(sessionId) {
   const [rows] = await pool.query(
     `SELECT s.id, s.started_by_user_id, s.started_at, s.ended_at, s.watched_movie_id,
-            s.cancelled_by_user_id, s.active,
+            s.cancelled_by_user_id, s.cancellation_reason, s.active,
             u.name AS started_by_name,
             cu.name AS cancelled_by_name,
             m.title AS watched_movie_title,
@@ -285,13 +285,15 @@ router.post('/:id/watched', requireAuth, async (req, res, next) => {
 
 router.post('/:id/cancel', requireAuth, async (req, res, next) => {
   try {
+    const reason = String(req.body?.reason ?? '').trim() || null;
     await pool.query(
       `UPDATE maybe_sessions
           SET active = FALSE,
               ended_at = CURRENT_TIMESTAMP,
-              cancelled_by_user_id = ?
+              cancelled_by_user_id = ?,
+              cancellation_reason = ?
         WHERE id = ?`,
-      [req.session.userId, Number(req.params.id)],
+      [req.session.userId, reason, Number(req.params.id)],
     );
     res.json({ ok: true });
   } catch (err) {
@@ -350,6 +352,7 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
         sets.push('watched_movie_id = ?');
         params.push(wm);
         sets.push('cancelled_by_user_id = NULL');
+        sets.push('cancellation_reason = NULL');
       }
     } else {
       // Allow editing watched_movie_id / cancelled_by_user_id without
@@ -384,6 +387,12 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
       }
       sets.push('ended_at = ?');
       params.push(v);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'cancellation_reason')) {
+      const reason = String(body.cancellation_reason ?? '').trim() || null;
+      sets.push('cancellation_reason = ?');
+      params.push(reason);
     }
 
     await conn.beginTransaction();

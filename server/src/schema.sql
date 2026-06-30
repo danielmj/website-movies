@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS maybe_sessions (
   ended_at TIMESTAMP NULL,
   watched_movie_id INT NULL,
   cancelled_by_user_id INT NULL,
+  cancellation_reason TEXT NULL,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   FOREIGN KEY (started_by_user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (watched_movie_id) REFERENCES movies(id) ON DELETE SET NULL,
