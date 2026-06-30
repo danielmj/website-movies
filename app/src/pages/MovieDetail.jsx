@@ -185,24 +185,7 @@ export default function MovieDetail() {
           {movie.notes && (
             <div className="notes-block"><strong>Notes:</strong> {movie.notes}</div>
           )}
-          {(movie.added_by_name || movie.created_at) && (
-            <div className="meta" style={{ marginTop: '0.4rem' }}>
-              {movie.created_by_name && movie.created_by_user_id !== movie.added_by_user_id ? (
-                // Added on someone's behalf: credit the recommender ("from")
-                // but record who actually added it.
-                <>
-                  {`Added${movie.created_at ? ` on ${fmtDate(movie.created_at)}` : ''}`}
-                  {movie.added_by_name ? ` from ${movie.added_by_name}` : ''}
-                  {`, added by ${movie.created_by_name}`}
-                </>
-              ) : (
-                <>
-                  {movie.added_by_name ? `added by ${movie.added_by_name}` : 'added'}
-                  {movie.created_at ? ` on ${fmtDate(movie.created_at)}` : ''}
-                </>
-              )}
-            </div>
-          )}
+          <RecommenderLine movie={movie} canEdit={!!user} reload={load} />
           {movie.overview && (
             <p style={{ color: 'var(--muted)', lineHeight: 1.5 }}>{movie.overview}</p>
           )}
@@ -627,6 +610,105 @@ function WatchHistory({ movie }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+// Attribution line under the title. Renders "added by X on <date>", or
+// "Added on <date> from <recommender>, added by <creator>" when the movie was
+// added on someone's behalf. Any logged-in user can change the credited
+// recommender via the inline "change" affordance — it's community-editable.
+function RecommenderLine({ movie, canEdit, reload }) {
+  const [editing, setEditing] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [value, setValue] = useState(movie.added_by_user_id ?? '');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => { setValue(movie.added_by_user_id ?? ''); }, [movie.added_by_user_id]);
+
+  function startEdit() {
+    setEditing(true);
+    setErr(null);
+    if (!users.length) {
+      api.get('/api/auth/users').then(setUsers).catch(() => setUsers([]));
+    }
+  }
+
+  async function save() {
+    setSaving(true); setErr(null);
+    try {
+      await api.patch(`/api/movies/${movie.id}/recommender`, {
+        added_by_user_id: value === '' ? null : Number(value),
+      });
+      setEditing(false);
+      await reload();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Nothing to show and nothing to edit (anonymous viewer, no attribution).
+  if (!movie.added_by_name && !movie.created_at && !canEdit) return null;
+
+  if (editing) {
+    return (
+      <div className="meta" style={{ marginTop: '0.4rem' }}>
+        <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span>Recommended by</span>
+          <select value={value} onChange={(e) => setValue(e.target.value)}>
+            <option value="">— nobody —</option>
+            {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+          <button
+            className="primary"
+            onClick={save}
+            disabled={saving || String(value) === String(movie.added_by_user_id ?? '')}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button onClick={() => { setEditing(false); setErr(null); }} disabled={saving}>Cancel</button>
+        </div>
+        {err && <div className="error">{err}</div>}
+      </div>
+    );
+  }
+
+  const onBehalf = movie.created_by_name && movie.created_by_user_id !== movie.added_by_user_id;
+  return (
+    <div className="meta" style={{ marginTop: '0.4rem' }}>
+      {onBehalf ? (
+        <>
+          {`Added${movie.created_at ? ` on ${fmtDate(movie.created_at)}` : ''}`}
+          {movie.added_by_name ? ` from ${movie.added_by_name}` : ''}
+          {`, added by ${movie.created_by_name}`}
+        </>
+      ) : (
+        <>
+          {movie.added_by_name ? `added by ${movie.added_by_name}` : 'added'}
+          {movie.created_at ? ` on ${fmtDate(movie.created_at)}` : ''}
+        </>
+      )}
+      {canEdit && (
+        <button
+          type="button"
+          onClick={startEdit}
+          style={{
+            marginLeft: '0.5rem',
+            color: 'var(--muted)',
+            background: 'transparent',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+            font: 'inherit',
+            textDecoration: 'underline',
+          }}
+        >
+          change
+        </button>
+      )}
+    </div>
   );
 }
 

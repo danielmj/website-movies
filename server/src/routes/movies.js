@@ -267,6 +267,32 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
   }
 });
 
+// Change the credited recommender (the "added on behalf of" person). Open to
+// any logged-in user — the recommendation credit is community-editable, unlike
+// the factual created_by_user_id which only admins can change. Pass null to
+// clear it. The target must be a real, non-hidden user.
+router.patch('/:id/recommender', requireAuth, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'invalid movie id' });
+
+    const raw = req.body?.added_by_user_id;
+    let userId = null;
+    if (raw !== null && raw !== undefined && raw !== '') {
+      userId = Number(raw);
+      if (!userId) return res.status(400).json({ error: 'invalid added_by_user_id' });
+      const [u] = await pool.query('SELECT id FROM users WHERE id = ? AND hidden = FALSE', [userId]);
+      if (!u.length) return res.status(400).json({ error: 'unknown user' });
+    }
+
+    const [r] = await pool.query('UPDATE movies SET added_by_user_id = ? WHERE id = ?', [userId, id]);
+    if (!r.affectedRows) return res.status(404).json({ error: 'not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/:id/comments', requireAuth, async (req, res, next) => {
   try {
     const movieId = Number(req.params.id);
