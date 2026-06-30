@@ -44,6 +44,9 @@ export default function MovieDetail() {
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  // Non-admin "Edit" entry point — lets any logged-in user change the
+  // credited recommender after the fact. Admins use the fuller admin modal.
+  const [showRecommenderModal, setShowRecommenderModal] = useState(false);
   // True after the user picks "Seen it" with no saved rating. We hold off
   // persisting anything until they pick an emoji so the user_movies row
   // (and the orange "needs response" border) stays in its un-rated state.
@@ -155,8 +158,11 @@ export default function MovieDetail() {
         >
           ← Back
         </button>
-        {user?.is_admin && (
-          <button type="button" onClick={() => setShowAdminModal(true)}>
+        {user && (
+          <button
+            type="button"
+            onClick={() => (user.is_admin ? setShowAdminModal(true) : setShowRecommenderModal(true))}
+          >
             Edit
           </button>
         )}
@@ -301,6 +307,22 @@ export default function MovieDetail() {
                   <button onClick={() => setShowAdminModal(false)}>Close</button>
                 </div>
                 <AdminMovieEditor movie={movie} reload={load} />
+              </div>
+            </div>
+          )}
+
+          {!user.is_admin && showRecommenderModal && (
+            <div className="modal-backdrop" onClick={() => setShowRecommenderModal(false)}>
+              <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                <div className="spread" style={{ marginBottom: '0.5rem' }}>
+                  <h2 style={{ margin: 0 }}>Edit recommendation</h2>
+                  <button onClick={() => setShowRecommenderModal(false)}>Close</button>
+                </div>
+                <RecommenderEditor
+                  movie={movie}
+                  reload={load}
+                  onDone={() => setShowRecommenderModal(false)}
+                />
               </div>
             </div>
           )}
@@ -613,26 +635,20 @@ function WatchHistory({ movie }) {
   );
 }
 
-// Attribution line under the title. Renders "added by X on <date>", or
-// "Added on <date> from <recommender>, added by <creator>" when the movie was
-// added on someone's behalf. Any logged-in user can change the credited
-// recommender via the inline "change" affordance — it's community-editable.
-function RecommenderLine({ movie, canEdit, reload }) {
-  const [editing, setEditing] = useState(false);
+// Dropdown + save for the credited recommender. Reused by the inline "change"
+// affordance and the non-admin Edit modal. Hits the auth-open recommender
+// endpoint. onDone (when provided) renders a Cancel button and is called after
+// a successful save.
+function RecommenderEditor({ movie, reload, onDone }) {
   const [users, setUsers] = useState([]);
   const [value, setValue] = useState(movie.added_by_user_id ?? '');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
 
   useEffect(() => { setValue(movie.added_by_user_id ?? ''); }, [movie.added_by_user_id]);
-
-  function startEdit() {
-    setEditing(true);
-    setErr(null);
-    if (!users.length) {
-      api.get('/api/auth/users').then(setUsers).catch(() => setUsers([]));
-    }
-  }
+  useEffect(() => {
+    api.get('/api/auth/users').then(setUsers).catch(() => setUsers([]));
+  }, []);
 
   async function save() {
     setSaving(true); setErr(null);
@@ -640,8 +656,8 @@ function RecommenderLine({ movie, canEdit, reload }) {
       await api.patch(`/api/movies/${movie.id}/recommender`, {
         added_by_user_id: value === '' ? null : Number(value),
       });
-      setEditing(false);
       await reload();
+      onDone?.();
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -649,30 +665,40 @@ function RecommenderLine({ movie, canEdit, reload }) {
     }
   }
 
+  return (
+    <div className="meta" style={{ marginTop: onDone ? 0 : '0.4rem' }}>
+      <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <span>Recommended by</span>
+        <select value={value} onChange={(e) => setValue(e.target.value)} style={{ minWidth: 180 }}>
+          <option value="">— nobody —</option>
+          {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+        <button
+          className="primary"
+          onClick={save}
+          disabled={saving || String(value) === String(movie.added_by_user_id ?? '')}
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        {onDone && <button onClick={onDone} disabled={saving}>Cancel</button>}
+      </div>
+      {err && <div className="error">{err}</div>}
+    </div>
+  );
+}
+
+// Attribution line under the title. Renders "added by X on <date>", or
+// "Added on <date> from <recommender>, added by <creator>" when the movie was
+// added on someone's behalf. Any logged-in user can change the credited
+// recommender via the inline "change" affordance — it's community-editable.
+function RecommenderLine({ movie, canEdit, reload }) {
+  const [editing, setEditing] = useState(false);
+
   // Nothing to show and nothing to edit (anonymous viewer, no attribution).
   if (!movie.added_by_name && !movie.created_at && !canEdit) return null;
 
   if (editing) {
-    return (
-      <div className="meta" style={{ marginTop: '0.4rem' }}>
-        <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span>Recommended by</span>
-          <select value={value} onChange={(e) => setValue(e.target.value)}>
-            <option value="">— nobody —</option>
-            {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
-          <button
-            className="primary"
-            onClick={save}
-            disabled={saving || String(value) === String(movie.added_by_user_id ?? '')}
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-          <button onClick={() => { setEditing(false); setErr(null); }} disabled={saving}>Cancel</button>
-        </div>
-        {err && <div className="error">{err}</div>}
-      </div>
-    );
+    return <RecommenderEditor movie={movie} reload={reload} onDone={() => setEditing(false)} />;
   }
 
   const onBehalf = movie.created_by_name && movie.created_by_user_id !== movie.added_by_user_id;
@@ -693,7 +719,7 @@ function RecommenderLine({ movie, canEdit, reload }) {
       {canEdit && (
         <button
           type="button"
-          onClick={startEdit}
+          onClick={() => setEditing(true)}
           style={{
             marginLeft: '0.5rem',
             color: 'var(--muted)',
