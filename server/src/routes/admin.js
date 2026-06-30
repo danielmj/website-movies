@@ -318,11 +318,11 @@ router.post('/movies/import-titles/commit', requireAdmin, async (req, res, next)
         const [ins] = await conn.query(
           `INSERT INTO movies
              (tmdb_id, imdb_id, title, year, decade, duration_minutes, imdb_rating,
-              poster_url, overview, bechdel_rating, bechdel_passes, notes, added_by_user_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              poster_url, overview, bechdel_rating, bechdel_passes, notes, added_by_user_id, created_by_user_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [meta.tmdb_id, meta.imdb_id, meta.title, meta.year, meta.decade, meta.duration_minutes,
            imdbRating, meta.poster_url, meta.overview, bech.rating, bech.passes, it.note ?? null,
-           req.session.userId],
+           req.session.userId, req.session.userId],
         );
         if (meta.genres?.length) {
           const values = meta.genres.map((g) => [ins.insertId, g]);
@@ -359,6 +359,10 @@ router.patch('/movies/:id', requireAdmin, async (req, res, next) => {
     if (Object.prototype.hasOwnProperty.call(req.body, 'added_by_user_id')) {
       fields.push('added_by_user_id = ?');
       values.push(req.body.added_by_user_id ?? null);
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'created_by_user_id')) {
+      fields.push('created_by_user_id = ?');
+      values.push(req.body.created_by_user_id ?? null);
     }
     if (!fields.length) return res.status(400).json({ error: 'no editable fields supplied' });
     values.push(id);

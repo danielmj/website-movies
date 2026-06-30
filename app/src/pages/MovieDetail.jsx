@@ -187,8 +187,20 @@ export default function MovieDetail() {
           )}
           {(movie.added_by_name || movie.created_at) && (
             <div className="meta" style={{ marginTop: '0.4rem' }}>
-              {movie.added_by_name ? `added by ${movie.added_by_name}` : 'added'}
-              {movie.created_at ? ` on ${fmtDate(movie.created_at)}` : ''}
+              {movie.created_by_name && movie.created_by_user_id !== movie.added_by_user_id ? (
+                // Added on someone's behalf: credit the recommender ("from")
+                // but record who actually added it.
+                <>
+                  {`Added${movie.created_at ? ` on ${fmtDate(movie.created_at)}` : ''}`}
+                  {movie.added_by_name ? ` from ${movie.added_by_name}` : ''}
+                  {`, added by ${movie.created_by_name}`}
+                </>
+              ) : (
+                <>
+                  {movie.added_by_name ? `added by ${movie.added_by_name}` : 'added'}
+                  {movie.created_at ? ` on ${fmtDate(movie.created_at)}` : ''}
+                </>
+              )}
             </div>
           )}
           {movie.overview && (
@@ -624,6 +636,8 @@ function AdminMovieEditor({ movie, reload }) {
   const [users, setUsers] = useState([]);
   const [addedBy, setAddedBy] = useState(movie.added_by_user_id ?? '');
   const [savingAddedBy, setSavingAddedBy] = useState(false);
+  const [createdBy, setCreatedBy] = useState(movie.created_by_user_id ?? '');
+  const [savingCreatedBy, setSavingCreatedBy] = useState(false);
   const [newDate, setNewDate] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [adding, setAdding] = useState(false);
@@ -632,6 +646,7 @@ function AdminMovieEditor({ movie, reload }) {
   // If the parent reloads with a different value, sync the controls.
   useEffect(() => { setNotes(movie.notes || ''); }, [movie.id, movie.notes]);
   useEffect(() => { setAddedBy(movie.added_by_user_id ?? ''); }, [movie.id, movie.added_by_user_id]);
+  useEffect(() => { setCreatedBy(movie.created_by_user_id ?? ''); }, [movie.id, movie.created_by_user_id]);
   useEffect(() => {
     api.get('/api/auth/users').then(setUsers).catch(() => setUsers([]));
   }, []);
@@ -659,6 +674,20 @@ function AdminMovieEditor({ movie, reload }) {
       setErr(e.message);
     } finally {
       setSavingAddedBy(false);
+    }
+  }
+
+  async function saveCreatedBy() {
+    setSavingCreatedBy(true); setErr(null);
+    try {
+      await api.patch(`/api/admin/movies/${movie.id}`, {
+        created_by_user_id: createdBy === '' ? null : Number(createdBy),
+      });
+      await reload();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSavingCreatedBy(false);
     }
   }
 
@@ -711,7 +740,7 @@ function AdminMovieEditor({ movie, reload }) {
       </div>
 
       <div className="field">
-        <label>Added by</label>
+        <label>Recommended by (gets the credit)</label>
         <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
           <select
             value={addedBy}
@@ -729,6 +758,29 @@ function AdminMovieEditor({ movie, reload }) {
             disabled={savingAddedBy || String(addedBy) === String(movie.added_by_user_id ?? '')}
           >
             {savingAddedBy ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+
+      <div className="field">
+        <label>Added by (who created the entry)</label>
+        <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+          <select
+            value={createdBy}
+            onChange={(e) => setCreatedBy(e.target.value)}
+            style={{ flex: 1, minWidth: 200 }}
+          >
+            <option value="">— unset —</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+          <button
+            className="primary"
+            onClick={saveCreatedBy}
+            disabled={savingCreatedBy || String(createdBy) === String(movie.created_by_user_id ?? '')}
+          >
+            {savingCreatedBy ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>

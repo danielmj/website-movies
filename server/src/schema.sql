@@ -45,9 +45,16 @@ CREATE TABLE IF NOT EXISTS movies (
   bechdel_rating TINYINT,
   bechdel_passes BOOLEAN,
   notes TEXT,
+  -- The credited recommender. When a movie is added "on behalf of" someone
+  -- else, this points at that person so they get the recommendation credit
+  -- (filters/stats key off this). Otherwise it's whoever added the movie.
   added_by_user_id INT,
+  -- Who actually created the row (clicked "Add"). Differs from
+  -- added_by_user_id only when the movie was added on someone's behalf.
+  created_by_user_id INT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (added_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_year (year),
   INDEX idx_decade (decade)
 );

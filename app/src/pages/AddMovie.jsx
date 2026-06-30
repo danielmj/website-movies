@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
+import { useAuth } from '../auth.jsx';
 import RatingPicker, { SEEN_OPTIONS, INTEREST_OPTIONS } from '../components/RatingPicker.jsx';
 import SegmentedControl from '../components/SegmentedControl.jsx';
 
@@ -17,6 +18,7 @@ export default function AddMovie() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const initialQ = searchParams.get('q') || '';
   const returnTo = location.state?.from || '/';
 
@@ -43,6 +45,17 @@ export default function AddMovie() {
   const [rating, setRating] = useState(null);
   const [adding, setAdding] = useState(false);
   const [err, setErr] = useState(null);
+
+  // "Add on behalf of": optionally credit the recommendation to someone else.
+  // Empty string = the current user (the default). The list excludes the
+  // current user since they're already the implicit default.
+  const [users, setUsers] = useState([]);
+  const [onBehalfOf, setOnBehalfOf] = useState('');
+  useEffect(() => {
+    api.get('/api/auth/users')
+      .then((list) => setUsers(list.filter((u) => u.id !== user?.id)))
+      .catch(() => setUsers([]));
+  }, [user?.id]);
 
   // If we arrived with ?q=... pre-filled (from MovieList / MaybeMovie quick-add),
   // run the search immediately so the user sees results without an extra tap.
@@ -145,7 +158,10 @@ export default function AddMovie() {
     setAdding(true);
     setErr(null);
     try {
-      const { id } = await api.post('/api/movies', { tmdb_id: preview.tmdb_id });
+      const { id } = await api.post('/api/movies', {
+        tmdb_id: preview.tmdb_id,
+        on_behalf_of_user_id: onBehalfOf ? Number(onBehalfOf) : undefined,
+      });
       // Map UI-side seen/not_seen back to the persisted status enum
       // (UI's "Haven't seen" → 'not_interested' on the wire).
       const status = seenState === 'seen' ? 'seen' : 'not_interested';
@@ -313,6 +329,27 @@ export default function AddMovie() {
               <div className="field">
                 <label>Your rating</label>
                 <RatingPicker value={rating} onChange={setRating} />
+              </div>
+            )}
+
+            {users.length > 0 && (
+              <div className="field">
+                <label>Add on behalf of (optional)</label>
+                <select
+                  value={onBehalfOf}
+                  onChange={(e) => setOnBehalfOf(e.target.value)}
+                >
+                  <option value="">Myself</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+                {onBehalfOf && (
+                  <div className="meta" style={{ marginTop: '0.3rem' }}>
+                    {users.find((u) => String(u.id) === String(onBehalfOf))?.name} gets
+                    the recommendation credit; we'll record that you added it.
+                  </div>
+                )}
               </div>
             )}
 

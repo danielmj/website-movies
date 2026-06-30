@@ -88,6 +88,14 @@ router.post('/', requireAuth, async (req, res, next) => {
     const tmdbId = Number(req.body.tmdb_id);
     if (!tmdbId) return res.status(400).json({ error: 'tmdb_id required' });
 
+    // Optional "add on behalf of": the credited recommender. When supplied,
+    // that user gets the recommendation credit (filters/stats key off
+    // added_by_user_id) while created_by_user_id records who actually added
+    // it. Defaults to the adder when omitted.
+    const creatorId = req.session.userId;
+    const onBehalfOf = req.body.on_behalf_of_user_id;
+    const creditedId = onBehalfOf ? Number(onBehalfOf) : creatorId;
+
     const [existing] = await conn.query('SELECT id FROM movies WHERE tmdb_id = ?', [tmdbId]);
     if (existing.length) {
       conn.release();
@@ -104,8 +112,8 @@ router.post('/', requireAuth, async (req, res, next) => {
     const [ins] = await conn.query(
       `INSERT INTO movies
         (tmdb_id, imdb_id, title, year, decade, duration_minutes, imdb_rating,
-         poster_url, overview, bechdel_rating, bechdel_passes, added_by_user_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         poster_url, overview, bechdel_rating, bechdel_passes, added_by_user_id, created_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         meta.tmdb_id,
         meta.imdb_id,
@@ -118,7 +126,8 @@ router.post('/', requireAuth, async (req, res, next) => {
         meta.overview,
         bech.rating,
         bech.passes,
-        req.session.userId,
+        creditedId,
+        creatorId,
       ],
     );
     const movieId = ins.insertId;
@@ -146,7 +155,7 @@ router.get('/', optionalAuth, async (req, res, next) => {
     const [movies] = await pool.query(`
       SELECT id, tmdb_id, imdb_id, title, year, decade, duration_minutes,
              imdb_rating, poster_url, overview, bechdel_rating, bechdel_passes,
-             notes, added_by_user_id, created_at
+             notes, added_by_user_id, created_by_user_id, created_at
       FROM movies
       ORDER BY created_at DESC
     `);
@@ -182,9 +191,10 @@ router.get('/:id', optionalAuth, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const [rows] = await pool.query(
-      `SELECT m.*, u.name AS added_by_name
+      `SELECT m.*, u.name AS added_by_name, c.name AS created_by_name
        FROM movies m
        LEFT JOIN users u ON u.id = m.added_by_user_id
+       LEFT JOIN users c ON c.id = m.created_by_user_id
        WHERE m.id = ?`,
       [id],
     );
